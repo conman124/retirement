@@ -1,3 +1,5 @@
+use crate::rates::Rate;
+
 pub struct AssetAllocation {
     stocks_glide: Vec<f64>,
 }
@@ -40,12 +42,29 @@ impl AssetAllocation {
     }
 }
 
+pub struct Account {
+    money: f64,
+    allocation: AssetAllocation
+}
+
+impl Account {
+    pub fn new(starting: f64, allocation: AssetAllocation) -> Account {
+        Account { money: starting, allocation }
+    }
+
+    pub fn rebalance_and_invest(&mut self, rate: Rate, period: usize) {
+        let stocks_new = self.money * self.allocation.stocks(period) * rate.stocks();
+        let bonds_new = self.money * self.allocation.bonds(period) * rate.bonds();
+        self.money = stocks_new + bonds_new;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn vec() {
+    fn assetallocation_vec() {
         let assets = AssetAllocation::new(vec![1.0, 1.0, 1.0, 1.0, 0.5, 0.75]);
 
         assert_eq!(assets.stocks(0), 1.0);
@@ -68,7 +87,7 @@ mod tests {
     }
 
     #[test]
-    fn linearglide() {
+    fn assetallocation_linearglide() {
         let assets = AssetAllocation::new_linear_glide(4, 1.0, 4, 0.5);
 
         assert_eq!(assets.stocks(0), 1.0);
@@ -92,6 +111,14 @@ mod tests {
         assert_eq!(assets.bonds(7), 0.5);
         assert_eq!(assets.bonds(8), 0.5);
         assert_eq!(assets.bonds(100), 0.5);
+    }
 
+    #[test]
+    fn account_rebalanceandinvest() {
+        // Use powers of two to make the floating point math work out roundly
+        let mut account = Account::new(1_024.00, AssetAllocation::new_linear_glide(4, 0.75, 2, 0.25));
+        
+        account.rebalance_and_invest(Rate::new(2.0, 0.5, 1.0), 0);
+        assert_eq!(account.money, 1664.0);
     }
 }
