@@ -1,4 +1,4 @@
 #![allow(dead_code)]
 
-mod rateprovider;
+mod rates;
 mod assetallocation;
