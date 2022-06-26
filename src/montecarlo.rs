@@ -41,11 +41,14 @@ impl<'a> Run<'a> {
         for period in 1..=self.periods {
             for account in self.accounts.iter_mut() {
                 account.rebalance_and_invest_next_period(period);
-                if account.balance()[period] < withdrawal {
-                    return;
-                }
-                account.withdraw_from_period(withdrawal, period);
             }
+
+            let strategy = WithdrawalStrategy::new(withdrawal, &self.accounts, period);
+            match strategy.execute(&mut self.accounts) {
+                Err(_) => { return; }
+                _ => {}
+            }
+
             self.assets_adequate_periods += 1;
         }
     }
@@ -57,7 +60,7 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn run_executewithadequate() {
+    pub fn run_withadequate() {
         let rates = vec![Rate::new(1.25, 1.0, 1.0), Rate::new(1.5, 1.25, 1.0), Rate::new(0.75, 1.25, 1.5)];
         let asset_allocation = AssetAllocation::new_linear_glide(1, 0.75, 2, 0.25);
 
@@ -70,7 +73,7 @@ mod tests {
     }
 
     #[test]
-    pub fn run_executewithinadequate() {
+    pub fn run_withinadequate() {
         let rates = vec![Rate::new(1.25, 1.0, 1.0), Rate::new(1.25, 1.25, 1.0), Rate::new(0.75, 1.25, 1.5)];
         let asset_allocation = AssetAllocation::new_linear_glide(1, 0.75, 2, 0.25);
 
@@ -78,8 +81,7 @@ mod tests {
         let mut run = Run { rates, accounts: vec![account], periods: 3, assets_adequate_periods: 0 };
         run.populate(512.0);
 
-        // TODO this last number is wrong, but I need to refactor the withdrawal logic to handle this situation
-        assert_eq!(run.accounts[0].balance(), &vec![1024.0, 704.0, 368.0, 414.0]);
+        assert_eq!(run.accounts[0].balance(), &vec![1024.0, 704.0, 368.0, 0.0]);
         assert_eq!(run.assets_adequate_periods, 2);
     }
 }

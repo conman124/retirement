@@ -91,6 +91,14 @@ impl<'a> Account<'a> {
         self.balance[period] -= amount;
     }
 
+    pub fn attempt_withdrawal_with_shortfall(&mut self, amount: f64, period: usize) -> f64 {
+        let shortfall = amount - f64::min(amount, self.balance[period]);
+
+        self.withdraw_from_period(f64::min(amount, self.balance[period]), period);
+
+        shortfall
+    }
+
     pub fn balance(&self) -> &Vec<f64> {
         &self.balance
     }
@@ -189,5 +197,37 @@ mod tests {
         let mut account = Account{ balance: vec![1024.0; 2], allocation: &allocation, rates: vec![] };
 
         account.withdraw_from_period(2048.0, 1);
+    }
+
+    #[test]
+    fn account_attemptwithdrawall() {
+        let allocation = AssetAllocation::new_linear_glide(4, 0.75, 2, 0.25);
+        let mut account = Account{ balance: vec![1024.0; 2], allocation: &allocation, rates: vec![] };
+
+        let shortfall = account.attempt_withdrawal_with_shortfall(1024.0, 1);
+        assert_eq!(account.balance, vec![1024.0, 0.0]);
+        assert_eq!(shortfall, 0.0);
+    }
+
+
+    #[test]
+    fn account_attemptwithdrawsome() {
+        let allocation = AssetAllocation::new_linear_glide(4, 0.75, 2, 0.25);
+        let mut account = Account{ balance: vec![1024.0; 2], allocation: &allocation, rates: vec![] };
+
+        let shortfall = account.attempt_withdrawal_with_shortfall(512.0, 1);
+        assert_eq!(account.balance, vec![1024.0, 512.0]);
+        assert_eq!(shortfall, 0.0);
+    }
+
+
+    #[test]
+    fn account_attemptwithdrawmore() {
+        let allocation = AssetAllocation::new_linear_glide(4, 0.75, 2, 0.25);
+        let mut account = Account{ balance: vec![1024.0; 2], allocation: &allocation, rates: vec![] };
+
+        let shortfall = account.attempt_withdrawal_with_shortfall(2048.0, 1);
+        assert_eq!(account.balance, vec![1024.0, 0.0]);
+        assert_eq!(shortfall, 1024.0);
     }
 }

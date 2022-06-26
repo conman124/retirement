@@ -17,6 +17,20 @@ impl<'a> WithdrawalStrategy {
             period
         }
     }
+
+    pub fn execute(self, accounts: &mut Vec<Account<'a>>) -> Result<(), f64> {
+        // TODO ensure success in the constructor
+        let mut shortfall = 0.0;
+        for i in 0..accounts.len() {
+            shortfall += accounts[i].attempt_withdrawal_with_shortfall(self.withdrawals_per_account[i], self.period);
+        }
+
+        if shortfall != 0.0 {
+            Err(shortfall)
+        } else {
+            Ok(())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -47,5 +61,33 @@ mod tests {
         let strategy = WithdrawalStrategy::new(512.0, &vec![account1, account2], 1);
         assert_eq!(strategy.period, 1);
         assert_eq!(strategy.withdrawals_per_account, vec![384.0, 128.0]);
+    }
+
+    #[test]
+    pub fn withdrawalstrategy_executesuccess() {
+        let dummy_allocation = AssetAllocation::new(vec![1.0]);
+        let mut account1 = AccountSettings::new(1536.0, &dummy_allocation).create_account(1, vec![Rate::new(1.0, 1.0, 1.0)]);
+        let mut account2 = AccountSettings::new(512.0, &dummy_allocation).create_account(1, vec![Rate::new(1.0, 1.0, 1.0)]);
+        account1.rebalance_and_invest_next_period(1);
+        account2.rebalance_and_invest_next_period(1);
+
+        let mut accounts = vec![account1, account2];
+
+        let strategy = WithdrawalStrategy::new(512.0, &accounts, 1);
+        strategy.execute(&mut accounts).expect("should have enough");
+    }
+
+    #[test]
+    pub fn withdrawalstrategy_executefailure() {
+        let dummy_allocation = AssetAllocation::new(vec![1.0]);
+        let mut account1 = AccountSettings::new(1536.0, &dummy_allocation).create_account(1, vec![Rate::new(1.0, 1.0, 1.0)]);
+        let mut account2 = AccountSettings::new(512.0, &dummy_allocation).create_account(1, vec![Rate::new(1.0, 1.0, 1.0)]);
+        account1.rebalance_and_invest_next_period(1);
+        account2.rebalance_and_invest_next_period(1);
+
+        let mut accounts = vec![account1, account2];
+
+        let strategy = WithdrawalStrategy::new(4096.0, &accounts, 1);
+        assert_eq!(2048.0, strategy.execute(&mut accounts).expect_err("shouldn't have enough"));
     }
 }
