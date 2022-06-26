@@ -2,6 +2,7 @@ use rand::prelude::*;
 use rand::distributions::Uniform;
 use crate::rates::{generate_rates,Rate};
 use crate::assets::{Account,AccountSettings};
+use crate::withdrawal::WithdrawalStrategy;
 
 pub struct Run<'a> {
     rates: Vec<Rate>,
