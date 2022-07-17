@@ -1,8 +1,48 @@
+use std::cmp;
 use rand::prelude::*;
 use rand::distributions::Uniform;
 use crate::rates::{generate_rates,Rate};
 use crate::assets::{Account,AccountSettings};
 use crate::withdrawal::WithdrawalStrategy;
+
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
+pub struct Lifespan {
+    periods: usize
+}
+
+#[derive(Debug)]
+pub struct LifespanIterator {
+    current: usize,
+    periods: usize
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Period {
+    period: usize
+}
+
+impl Lifespan {
+    pub fn new(periods: usize) -> Lifespan {
+        Lifespan{ periods }
+    }
+
+    pub fn iter(&self) -> LifespanIterator {
+        LifespanIterator{current: 0, periods: self.periods}
+    }
+}
+
+impl Iterator for LifespanIterator {
+    type Item = Period;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current < self.periods {
+            self.current += 1;
+            Some(Period{ period: self.current-1 })
+        } else {
+            None
+        }
+    }
+}
 
 pub struct Run<'a> {
     rates: Vec<Rate>,
