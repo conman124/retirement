@@ -44,6 +44,17 @@ impl Iterator for LifespanIterator {
     }
 }
 
+impl Period {
+    #[cfg(test)]
+    pub fn new(period: usize) -> Period {
+        Period { period }
+    }
+
+    pub fn get(&self) -> usize {
+        self.period
+    }
+}
+
 pub struct Run<'a> {
     rates: Vec<Rate>,
     accounts: Vec<Account<'a >>,
@@ -146,5 +157,23 @@ mod tests {
 
         assert_eq!(run.accounts[0].balance(), &vec![1024.0, 704.0, 368.0, 0.0]);
         assert_eq!(run.assets_adequate_periods, 2);
+    }
+
+    #[test]
+    pub fn lifespan_iter() {
+        let lifespan = Lifespan::new(10);
+        let mut iter = lifespan.iter();
+        for i in 0..10 {
+            assert_eq!(iter.next().unwrap().get(), i);
+        }
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    pub fn lifespan_max() {
+        let lifespan1 = Lifespan::new(10);
+        let lifespan2 = Lifespan::new(20);
+
+        assert_eq!(std::cmp::max(lifespan1, lifespan2).periods, lifespan2.periods);
     }
 }
