@@ -39,7 +39,7 @@ fn read_csv<T: DeserializeOwned + Display>(file: &str, output_file: &str, variab
 
     fs::write(
         &dest_path,
-        format!("static {}: [{}; {}] = [{}];", variable, typename, count, output)
+        format!("pub static {}: [{}; {}] = [{}];", variable, typename, count, output)
     )?;
     Ok(())
 }
