@@ -3,7 +3,7 @@ use rand::distributions::Uniform;
 use crate::rates::{generate_rates,Rate};
 use crate::assets::{Account,AccountSettings};
 use crate::util::Ratio;
-use crate::withdrawal::WithdrawalStrategy;
+use crate::withdrawal::{WithdrawalStrategyOrig,WithdrawalStrategy};
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub struct Lifespan {
@@ -94,8 +94,8 @@ impl<'a> Run<'a> {
                 account.rebalance_and_invest_next_period(period);
             }
 
-            let strategy = WithdrawalStrategy::new(withdrawal, &self.accounts, period);
-            match strategy.execute(&mut self.accounts) {
+            let strategy = WithdrawalStrategyOrig::new();
+            match strategy.execute(withdrawal, &mut self.accounts, Period { period }) {
                 Err(_) => { return; }
                 _ => {}
             }
