@@ -1,30 +1,46 @@
 use rand::prelude::*;
 use crate::montecarlo::Lifespan;
 
-pub struct Person {
-    lifespan: Lifespan
-}
-
 pub enum Gender {
     Male,
     Female
 }
 
-impl Person {
-    fn new<R: Rng>(rng: &mut R, age_years: usize, age_months: usize, death_rates: &[f64]) -> Person {
-        let lifespan = life_expectancy::calculate_periods(rng, &death_rates[age_years..], age_months);
+pub struct PersonSettings<'a> {
+    age_years: usize,
+    age_months: usize,
+    annual_death_rates: &'a [f64]
+}
 
-        Person { lifespan: Lifespan::new(lifespan) }
+pub struct Person {
+    lifespan: Lifespan
+}
+
+impl<'a> PersonSettings<'a> {
+    fn new(age_years: usize, age_months: usize, annual_death_rates: &'a [f64]) -> PersonSettings<'a> {
+        PersonSettings { age_years, age_months, annual_death_rates }
     }
 
-    pub fn new_with_default_death_rates<R: Rng>(rng: &mut R, age_years: usize, age_months: usize, gender: Gender) -> Person {
+    pub fn new_with_default_death_rates(age_years: usize, age_months: usize, gender: Gender) -> PersonSettings<'a> {
         let rates = match gender {
             Gender::Male => &life_expectancy::ANNUAL_DEATH_MALE_BUILTIN,
             Gender::Female => &life_expectancy::ANNUAL_DEATH_FEMALE_BUILTIN,
         };
 
-        Person::new(rng, age_years, age_months, rates)
+        PersonSettings::new(age_years, age_months, rates)
     }
+
+    pub fn create_person<R: Rng>(&self, rng: &mut R) -> Person {
+        let lifespan = life_expectancy::calculate_periods(rng, &self.annual_death_rates[self.age_years..], self.age_months);
+
+        Person { 
+            lifespan: Lifespan::new(lifespan)
+        }
+    }
+}
+
+impl Person {
+
 }
 
 mod life_expectancy {
