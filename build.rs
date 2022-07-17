@@ -15,7 +15,7 @@ struct Rate {
 
 impl Display for Rate {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Rate {{ stocks: {} as f64, bonds: {} as f64, inflation: {} as f64 }}", self.stocks, self.bonds, self.inflation)
+        write!(f, "Rate {{ stocks: {}f64, bonds: {}f64, inflation: {}f64 }}", self.stocks, self.bonds, self.inflation)
     }
 }
 
@@ -45,5 +45,7 @@ fn read_csv<T: DeserializeOwned + Display>(file: &str, output_file: &str, variab
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    read_csv::<Rate>("csv/rates.csv", "rates.rs", "RATES_BUILTIN")
+    read_csv::<Rate>("csv/rates.csv", "rates.rs", "RATES_BUILTIN")?;
+    read_csv::<f64>("csv/death_male.csv", "death_male.rs", "ANNUAL_DEATH_MALE_BUILTIN")?;
+    read_csv::<f64>("csv/death_female.csv", "death_female.rs", "ANNUAL_DEATH_FEMALE_BUILTIN")
 }
