@@ -1,8 +1,8 @@
-use std::cmp;
 use rand::prelude::*;
 use rand::distributions::Uniform;
 use crate::rates::{generate_rates,Rate};
 use crate::assets::{Account,AccountSettings};
+use crate::util::Ratio;
 use crate::withdrawal::WithdrawalStrategy;
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
@@ -56,12 +56,12 @@ fn calculate_periods(rng: &mut impl Rng) -> usize {
 }
 
 impl<'a> Run<'a> {
-    pub fn execute<T: SeedableRng + Rng + Clone>(seed: u64, all_rates: &[Rate], sublength: usize, length: usize, accounts_settings: Vec<AccountSettings<'a>>, withdrawal: f64) -> Run<'a> {
+    pub fn execute<T: SeedableRng + Rng + Clone>(seed: u64, all_rates: &[Rate], sublength: usize, accounts_settings: &Vec<AccountSettings<'a>>, withdrawal: f64) -> Run<'a> {
         let mut rng = T::seed_from_u64(seed);
 
 
         let periods = calculate_periods(&mut rng);
-        let rates = generate_rates(T::seed_from_u64(rng.gen()), all_rates, sublength, length);
+        let rates = generate_rates(T::seed_from_u64(rng.gen()), all_rates, sublength, periods);
         // TODO figure out a way to avoid cloning rates here
         let accounts = accounts_settings.iter().map(|a| a.create_account(periods, rates.clone())).collect();
 
@@ -90,6 +90,29 @@ impl<'a> Run<'a> {
             }
 
             self.assets_adequate_periods += 1;
+        }
+    }
+}
+
+pub struct Simulation<'a> {
+    runs: Vec<Run<'a>>
+}
+
+impl<'a> Simulation<'a> {
+    pub fn new<T: SeedableRng + Rng + Clone>(seed: u64, count: usize, all_rates: &[Rate], sublength: usize, accounts_settings: &Vec<AccountSettings<'a>>, withdrawal: f64) -> Simulation<'a> {
+        let runs: Vec<Run<'a>> = (0..count).map(|seed2| {
+            // TODO this seed stuff is kinda awful
+            let new_seed = (seed as usize * count) as u64 + (seed2 as u64);
+            Run::execute::<T>(new_seed, all_rates, sublength, accounts_settings, withdrawal)
+        }).collect();
+
+        Simulation { runs }
+    }
+
+    pub fn success_rate(&self) -> Ratio<usize> {
+        Ratio {
+            num: self.runs.iter().filter(|a| a.assets_adequate_periods >= a.periods).count(),
+            denum: self.runs.len()
         }
     }
 }
