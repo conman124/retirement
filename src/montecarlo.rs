@@ -29,6 +29,10 @@ impl Lifespan {
     pub fn iter(&self) -> LifespanIterator {
         LifespanIterator{current: 0, periods: self.periods}
     }
+
+    pub fn periods(&self) -> usize {
+        self.periods
+    }
 }
 
 impl Iterator for LifespanIterator {
@@ -52,6 +56,11 @@ impl Period {
 
     pub fn get(&self) -> usize {
         self.period
+    }
+
+    pub fn is_new_year(&self) -> bool {
+        // TODO fix this logic
+        self.period % 12 == 0
     }
 }
 
