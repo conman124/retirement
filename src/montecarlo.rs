@@ -64,11 +64,27 @@ impl Period {
     }
 }
 
+impl std::ops::Sub<usize> for Period {
+    type Output = Period;
+
+    fn sub(self, rhs: usize) -> Self::Output {
+        Period { period: self.period - rhs }
+    }
+}
+
+impl std::ops::Add<usize> for Period {
+    type Output = Period;
+
+    fn add(self, rhs: usize) -> Self::Output {
+        Period { period: self.period + rhs }
+    }
+}
+
 pub struct Run<'a> {
     rates: Vec<Rate>,
     accounts: Vec<Account<'a >>,
-    periods: usize,
     assets_adequate_periods: usize,
+    lifespan: Lifespan
 }
 
 fn calculate_periods(rng: &mut impl Rng) -> usize {
@@ -81,15 +97,16 @@ impl<'a> Run<'a> {
 
 
         let periods = calculate_periods(&mut rng);
+        let lifespan = Lifespan::new(periods);
         let rates = generate_rates(T::seed_from_u64(rng.gen()), all_rates, sublength, periods);
         // TODO figure out a way to avoid cloning rates here
-        let accounts = accounts_settings.iter().map(|a| a.create_account(periods, rates.clone())).collect();
+        let accounts = accounts_settings.iter().map(|a| a.create_account(lifespan, rates.clone())).collect();
 
         let mut run = Run {
             rates,
             accounts,
-            periods,
-            assets_adequate_periods: 0
+            assets_adequate_periods: 0,
+            lifespan
         };
 
         run.populate(withdrawal);
@@ -98,13 +115,13 @@ impl<'a> Run<'a> {
     }
 
     fn populate(&mut self, withdrawal: f64) {
-        for period in 1..=self.periods {
+        for period in self.lifespan.iter() {
             for account in self.accounts.iter_mut() {
                 account.rebalance_and_invest_next_period(period);
             }
 
             let strategy = WithdrawalStrategyOrig::new();
-            match strategy.execute(withdrawal, &mut self.accounts, Period { period }) {
+            match strategy.execute(withdrawal, &mut self.accounts, period) {
                 Err(_) => { return; }
                 _ => {}
             }
@@ -131,7 +148,7 @@ impl<'a> Simulation<'a> {
 
     pub fn success_rate(&self) -> Ratio<usize> {
         Ratio {
-            num: self.runs.iter().filter(|a| a.assets_adequate_periods >= a.periods).count(),
+            num: self.runs.iter().filter(|a| a.assets_adequate_periods >= a.lifespan.periods()).count(),
             denum: self.runs.len()
         }
     }
@@ -147,11 +164,11 @@ mod tests {
         let rates = vec![Rate::new(1.25, 1.0, 1.0), Rate::new(1.5, 1.25, 1.0), Rate::new(0.75, 1.25, 1.5)];
         let asset_allocation = AssetAllocation::new_linear_glide(1, 0.75, 2, 0.25);
 
-        let account = AccountSettings::new(1024.0, &asset_allocation).create_account(3, rates.clone());
-        let mut run = Run { rates, accounts: vec![account], periods: 3, assets_adequate_periods: 0 };
+        let account = AccountSettings::new(1024.0, &asset_allocation).create_account(Lifespan::new(3), rates.clone());
+        let mut run = Run { rates, accounts: vec![account], assets_adequate_periods: 0, lifespan: Lifespan::new(3) };
         run.populate(16.0);
 
-        assert_eq!(run.accounts[0].balance(), &vec![1024.0, 1200.0, 1634.0, 1822.25]);
+        assert_eq!(run.accounts[0].balance(), &vec![1200.0, 1634.0, 1822.25]);
         assert_eq!(run.assets_adequate_periods, 3);
     }
 
@@ -160,12 +177,28 @@ mod tests {
         let rates = vec![Rate::new(1.25, 1.0, 1.0), Rate::new(1.25, 1.25, 1.0), Rate::new(0.75, 1.25, 1.5)];
         let asset_allocation = AssetAllocation::new_linear_glide(1, 0.75, 2, 0.25);
 
-        let account = AccountSettings::new(1024.0, &asset_allocation).create_account(3, rates.clone());
-        let mut run = Run { rates, accounts: vec![account], periods: 3, assets_adequate_periods: 0 };
+        let account = AccountSettings::new(1024.0, &asset_allocation).create_account(Lifespan::new(3), rates.clone());
+        let mut run = Run { rates, accounts: vec![account], assets_adequate_periods: 0, lifespan: Lifespan::new(3) };
         run.populate(512.0);
 
-        assert_eq!(run.accounts[0].balance(), &vec![1024.0, 704.0, 368.0, 0.0]);
+        assert_eq!(run.accounts[0].balance(), &vec![704.0, 368.0, 0.0]);
         assert_eq!(run.assets_adequate_periods, 2);
+    }
+
+    #[test]
+    pub fn period_sub() {
+        let period = Period::new(1);
+        let new_period = period - 1;
+
+        assert_eq!(new_period.get(), 0);
+    }
+
+    #[test]
+    pub fn period_add() {
+        let period = Period::new(1);
+        let new_period = period + 1;
+
+        assert_eq!(new_period.get(), 2);
     }
 
     #[test]
