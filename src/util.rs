@@ -1,5 +1,12 @@
 use std::fmt::Display;
 
+#[macro_export]
+macro_rules! simplifying_assumption {
+    ($a: literal) => {
+
+    };
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct Ratio<T>
 {
@@ -23,8 +30,18 @@ where T: Into<f64> + Copy
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
+    use assert_float_eq::*;
+
+    pub fn assert_vecfloat_absolute(vec1: Vec<f64>, vec2: Vec<f64>) -> () {
+        assert_eq!(vec1.len(), vec2.len());
+
+        for (f1, f2) in vec1.iter().zip(vec2) {
+            assert_float_absolute_eq!(f1, f2);
+        }
+    }
+
 
     #[test]
     pub fn as_ratio() {

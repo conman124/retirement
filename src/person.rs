@@ -84,15 +84,7 @@ mod life_expectancy {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use assert_float_eq::*;
-
-        fn assert_vecfloat_absolute(vec1: Vec<f64>, vec2: Vec<f64>) -> () {
-            assert_eq!(vec1.len(), vec2.len());
-
-            for (f1, f2) in vec1.iter().zip(vec2) {
-                assert_float_absolute_eq!(f1, f2);
-            }
-        }
+        use crate::util::tests::assert_vecfloat_absolute;
 
         #[test]
         fn convertannual_offset0() {
