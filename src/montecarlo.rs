@@ -62,6 +62,10 @@ impl Period {
         // TODO fix this logic
         self.period % 12 == 0
     }
+
+    pub fn round_down_to_year(&self) -> Period {
+        Period { period: self.period - (self.period % 12) }
+    }
 }
 
 impl std::ops::Sub<usize> for Period {
