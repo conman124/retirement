@@ -35,6 +35,7 @@ pub struct TaxSettings {
 }
 
 pub trait TaxCollector {
+    fn new(settings: TaxSettings, rates: Vec<Rate>, lifespan: Lifespan) -> Self;
     fn collect_income_taxes(&mut self, money: Money, period: Period) -> TaxResult;
 }
 
@@ -45,12 +46,6 @@ pub struct Tax {
 }
 
 impl Tax {
-    pub fn new(settings: TaxSettings, rates: Vec<Rate>, lifespan: Lifespan) -> Tax {
-        assert_eq!(rates.len(), lifespan.periods());
-
-        Tax{ settings, rates, gross_income: vec![0.0; lifespan.periods()] }
-    }
-
     fn calculate_tax_amount(&self, mut money: f64, period: Period) -> f64 {
         assert!(self.settings.brackets.len() > 0);
 
@@ -94,6 +89,12 @@ impl Tax {
 
 
 impl TaxCollector for Tax {
+    fn new(settings: TaxSettings, rates: Vec<Rate>, lifespan: Lifespan) -> Tax {
+        assert_eq!(rates.len(), lifespan.periods());
+
+        Tax{ settings, rates, gross_income: vec![0.0; lifespan.periods()] }
+    }
+
     fn collect_income_taxes(&mut self, money: Money, period: Period) -> TaxResult {
         match money {
             Money::NonTaxable(amt) => {
