@@ -3,6 +3,9 @@ use crate::montecarlo::Period;
 use crate::rates::Rate;
 use crate::simplifying_assumption;
 
+#[cfg(test)]
+use mockall::automock;
+
 // TODO Add taxable with basis here
 pub enum Money {
     Taxable(f64),
@@ -15,6 +18,9 @@ pub struct TaxResult {
 }
 
 impl TaxResult {
+    #[cfg(test)]
+    pub fn new(taxes: f64, leftover: f64) -> TaxResult { TaxResult{ taxes, leftover } }
+
     pub fn taxes(&self) -> f64 { self.taxes } 
     pub fn leftover(&self) -> f64 { self.leftover } 
 }
@@ -34,6 +40,7 @@ pub struct TaxSettings {
     pub adjust_deduction_for_inflation: bool,
 }
 
+#[cfg_attr(test, automock)]
 pub trait TaxCollector {
     fn new(settings: TaxSettings, rates: Vec<Rate>, lifespan: Lifespan) -> Self;
     fn collect_income_taxes(&mut self, money: Money, period: Period) -> TaxResult;
