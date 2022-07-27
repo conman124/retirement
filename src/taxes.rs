@@ -65,20 +65,26 @@ impl Tax {
         }
         money -= self.settings.deduction * deduction_inflation;
 
-        // TODO inflate brackets
+        let mut bracket_inflation = 1.0;
+        if self.settings.adjust_bracket_floors_for_inflation {
+            let new_year = period.round_down_to_year();
+            if new_year.get() > 0 {
+                bracket_inflation = self.rates[new_year.get()-12..new_year.get()].iter().map(|r| r.inflation()).product::<f64>();
+            }
+        }
         for (bracket,next) in self.settings.brackets.iter().zip(self.settings.brackets[1..].iter()) {
-            if money < bracket.floor {
+            if money < bracket.floor * bracket_inflation {
                 break;
             }
 
-            let ceil = f64::min(money, next.floor);
-            let in_bracket = ceil - bracket.floor;
+            let ceil = f64::min(money, next.floor * bracket_inflation);
+            let in_bracket = ceil - bracket.floor * bracket_inflation;
             taxes += in_bracket * bracket.rate;
         }
 
         let last = self.settings.brackets.last().unwrap();
-        if money > last.floor {
-            let in_bracket = money - last.floor;
+        if money > last.floor * bracket_inflation {
+            let in_bracket = money - last.floor * bracket_inflation;
             taxes += in_bracket * last.rate;
         }
 
@@ -162,8 +168,38 @@ mod tests {
         let tax = Tax::new(settings, vec![Rate::new(1.0, 1.0, 1.002); 24], lifespan);
 
         assert_float_absolute_eq!(tax.calculate_tax_amount(12000.0, Period::new(0)), 220.0);
+        assert_float_absolute_eq!(tax.calculate_tax_amount(15000.0, Period::new(0)), 620.0);
 
         assert_float_absolute_eq!(tax.calculate_tax_amount(12000.0, Period::new(12)), 190.881078);
+        assert_float_absolute_eq!(tax.calculate_tax_amount(15000.0, Period::new(12)), 586.027924876);
+    }
+
+    #[test]
+    pub fn calculatetaxamount_inflatebrackets() {
+        let lifespan = Lifespan::new(24);
+        let brackets = vec![TaxBracket { floor: 0.0, rate: 0.1 }, TaxBracket { floor: 1000.0, rate: 0.12 }, TaxBracket { floor: 3000.0, rate: 0.14 } ];
+        let settings = TaxSettings { deduction: 10000.0, adjust_deduction_for_inflation: false, brackets, adjust_bracket_floors_for_inflation: true };
+        let tax = Tax::new(settings, vec![Rate::new(1.0, 1.0, 1.002); 24], lifespan);
+
+        assert_float_absolute_eq!(tax.calculate_tax_amount(12000.0, Period::new(0)), 220.0);
+        assert_float_absolute_eq!(tax.calculate_tax_amount(15000.0, Period::new(0)), 620.0);
+
+        assert_float_absolute_eq!(tax.calculate_tax_amount(12000.0, Period::new(12)), 219.5146846);
+        assert_float_absolute_eq!(tax.calculate_tax_amount(15000.0, Period::new(12)), 618.0587386);
+    }
+
+    #[test]
+    pub fn calculatetaxamount_inflateboth() {
+        let lifespan = Lifespan::new(24);
+        let brackets = vec![TaxBracket { floor: 0.0, rate: 0.1 }, TaxBracket { floor: 1000.0, rate: 0.12 }, TaxBracket { floor: 3000.0, rate: 0.14 } ];
+        let settings = TaxSettings { deduction: 10000.0, adjust_deduction_for_inflation: true, brackets, adjust_bracket_floors_for_inflation: true };
+        let tax = Tax::new(settings, vec![Rate::new(1.0, 1.0, 1.002); 24], lifespan);
+
+        assert_float_absolute_eq!(tax.calculate_tax_amount(12000.0, Period::new(0)), 220.0);
+        assert_float_absolute_eq!(tax.calculate_tax_amount(15000.0, Period::new(0)), 620.0);
+
+        assert_float_absolute_eq!(tax.calculate_tax_amount(12000.0, Period::new(12)), 190.3957631);
+        assert_float_absolute_eq!(tax.calculate_tax_amount(15000.0, Period::new(12)), 584.0866634);
     }
 
     #[test]
