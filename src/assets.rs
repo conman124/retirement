@@ -98,6 +98,10 @@ impl<'a> Account<'a> {
         shortfall
     }
 
+    pub fn deposit(&mut self, amount: f64, period: Period) {
+        self.balance[period.get()] += amount;
+    }
+
     pub fn balance(&self) -> &Vec<f64> {
         &self.balance
     }

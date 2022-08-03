@@ -1,3 +1,4 @@
+use crate::assets::{AccountSettings, Account};
 use crate::montecarlo::{Period, Lifespan};
 use crate::rates::Rate;
 use crate::simplifying_assumption;
@@ -23,37 +24,77 @@ pub struct RaiseSettings {
     pub adjust_for_inflation: bool
 }
 
-pub struct JobSettings {
+#[derive(Copy,Clone,PartialEq,Eq,Debug)]
+pub enum AccountContributionSource {
+    Employee,
+    Employer
+}
+
+#[derive(Copy,Clone,PartialEq,Eq)]
+pub enum AccountContributionTaxability {
+    PreTax,
+    PostTax
+}
+
+pub struct AccountContributionSettings<'a> {
+    account: AccountSettings<'a>,
+    contribution_pct: f64,
+    contribution_source: AccountContributionSource,
+    tax: AccountContributionTaxability
+}
+
+pub struct AccountContribution<'a> {
+    account: Account<'a>,
+    contribution_pct: f64,
+    contribution_source: AccountContributionSource,
+    tax: AccountContributionTaxability
+}
+
+pub struct JobSettings<'a> {
     // name, 401k, pension
     starting_gross_income: f64,
     fica: Fica,
     raise: RaiseSettings,
+    account_contribution_settings: Vec<AccountContributionSettings<'a>>
 }
 
-pub struct Job {
+pub struct Job<'a> {
     starting_gross_income: f64,
     gross_income: Vec<f64>,
     net_income: Vec<f64>,
     fica: Fica,
     raise: RaiseSettings,
-    rates: Vec<Rate>
+    rates: Vec<Rate>,
+    account_contributions: Vec<AccountContribution<'a>>
 }
 
-impl JobSettings {
-    pub fn new(starting_gross_income: f64, fica: Fica, raise: RaiseSettings) -> JobSettings {
-        JobSettings { starting_gross_income, fica, raise }
+impl<'a> AccountContributionSettings<'a> {
+    fn create_account_contribution(&self, lifespan: Lifespan, rates: Vec<Rate>) -> AccountContribution<'a> {
+        AccountContribution {
+            account: self.account.create_account(lifespan, rates),
+            contribution_pct: self.contribution_pct,
+            contribution_source: self.contribution_source,
+            tax: self.tax
+        }
+    }
+}
+
+impl<'a> JobSettings<'a> {
+    pub fn new(starting_gross_income: f64, fica: Fica, raise: RaiseSettings, account_contribution_settings: Vec<AccountContributionSettings<'a>>) -> JobSettings<'a> {
+        JobSettings { starting_gross_income, fica, raise, account_contribution_settings }
     }
 
-    pub fn create_job(&self, lifespan: Lifespan, rates: Vec<Rate>) -> Job {
+    pub fn create_job(&self, lifespan: Lifespan, rates: Vec<Rate>) -> Job<'a> {
+        assert_eq!(lifespan.periods(), rates.len());
         let gross_income = vec![0.0; lifespan.periods()];
         let net_income = vec![0.0; lifespan.periods()];
-        assert_eq!(lifespan.periods(), rates.len());
+        let account_contributions = self.account_contribution_settings.iter().map(|settings| settings.create_account_contribution(lifespan, rates.clone()) ).collect();
 
-        Job { starting_gross_income: self.starting_gross_income, gross_income, net_income, fica: self.fica, raise: self.raise, rates }
+        Job { starting_gross_income: self.starting_gross_income, gross_income, net_income, fica: self.fica, raise: self.raise, rates, account_contributions }
     }
 }
 
-impl IncomeProvider for Job {
+impl<'a> IncomeProvider for Job<'a> {
     fn calculate_income_for_period(&mut self, period: Period, tax: &mut impl TaxCollector) {
         let gross = if period.get() == 0 {
             self.starting_gross_income
@@ -79,11 +120,33 @@ impl IncomeProvider for Job {
             Fica::Exempt => { 0.0 }
         };
 
-        let net = tax.collect_income_taxes(Money::Taxable(gross), period).leftover();
+        let mut pretax_contributions = 0.0;
+        for account in &mut self.account_contributions {
+            if account.tax == AccountContributionTaxability::PreTax {
+                if account.contribution_source == AccountContributionSource::Employee {
+                    pretax_contributions += gross * account.contribution_pct
+                }
+                account.account.deposit(gross * account.contribution_pct, period);
+            }
+        }
 
-        // TODO contribute to social security/pension/401k
+        let taxable = gross - pretax_contributions;
 
-        self.net_income[period.get()] = net - fica_deduction;
+        let net = tax.collect_income_taxes(Money::Taxable(taxable), period).leftover();
+
+        // TODO contribute to social security/pension
+
+        let mut posttax_contributions = 0.0;
+        for account in &mut self.account_contributions {
+            if account.tax == AccountContributionTaxability::PostTax {
+                assert_eq!(account.contribution_source, AccountContributionSource::Employee);
+
+                posttax_contributions += gross * account.contribution_pct;
+                account.account.deposit(gross * account.contribution_pct, period);
+            }
+        }
+
+        self.net_income[period.get()] = net - fica_deduction - posttax_contributions;
     }
 
     fn get_net_income(&self) -> &Vec<f64> {
@@ -94,6 +157,7 @@ impl IncomeProvider for Job {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assets::AssetAllocation;
     use crate::util::tests::assert_vecfloat_absolute;
     use crate::taxes::{MockTaxCollector,TaxResult};
 
@@ -110,7 +174,7 @@ mod tests {
     
     #[test]
     pub fn calculateincome_noraise_notax() {
-        let job_settings = JobSettings::new(1000.0, Fica::Exempt, RaiseSettings {amount: 1.0, adjust_for_inflation: false} );
+        let job_settings = JobSettings::new(1000.0, Fica::Exempt, RaiseSettings {amount: 1.0, adjust_for_inflation: false}, vec![] );
         let lifespan = Lifespan::new(16);
         let rates = vec![Rate::new(1.0, 1.0, 1.0); 16];
         let mut job = job_settings.create_job(lifespan, rates);
@@ -125,7 +189,7 @@ mod tests {
 
     #[test]
     pub fn calculateincome_raise_notax() {
-        let job_settings = JobSettings::new(1024.0, Fica::Exempt, RaiseSettings { amount: 1.0625, adjust_for_inflation: false } );
+        let job_settings = JobSettings::new(1024.0, Fica::Exempt, RaiseSettings { amount: 1.0625, adjust_for_inflation: false }, vec![] );
         let lifespan = Lifespan::new(16);
         let rates = vec![Rate::new(1.0, 1.0, 1.0); 16];
         let mut job = job_settings.create_job(lifespan, rates);
@@ -140,7 +204,7 @@ mod tests {
 
     #[test]
     pub fn calculateincome_raiseinflation_notax() {
-        let job_settings = JobSettings::new(1024.0, Fica::Exempt, RaiseSettings { amount: 1.0625, adjust_for_inflation: true } );
+        let job_settings = JobSettings::new(1024.0, Fica::Exempt, RaiseSettings { amount: 1.0625, adjust_for_inflation: true }, vec![] );
         let lifespan = Lifespan::new(16);
         let rates = vec![Rate::new(1.0, 1.0, 1.002); 16];
         let mut job = job_settings.create_job(lifespan, rates);
@@ -155,7 +219,7 @@ mod tests {
 
     #[test]
     pub fn calculateincome_fica_raiseinflation_notax() {
-        let job_settings = JobSettings::new(1024.0, Fica::Participant { ss_rate: 0.0625 }, RaiseSettings { amount: 1.0625, adjust_for_inflation: true } );
+        let job_settings = JobSettings::new(1024.0, Fica::Participant { ss_rate: 0.0625 }, RaiseSettings { amount: 1.0625, adjust_for_inflation: true }, vec![] );
         let lifespan = Lifespan::new(16);
         let rates = vec![Rate::new(1.0, 1.0, 1.002); 16];
         let mut job = job_settings.create_job(lifespan, rates);
@@ -170,7 +234,7 @@ mod tests {
 
     #[test]
     pub fn calculateincome_noraise_10tax() {
-        let job_settings = JobSettings::new(1000.0, Fica::Exempt, RaiseSettings {amount: 1.0, adjust_for_inflation: false} );
+        let job_settings = JobSettings::new(1000.0, Fica::Exempt, RaiseSettings {amount: 1.0, adjust_for_inflation: false}, vec![] );
         let lifespan = Lifespan::new(16);
         let rates = vec![Rate::new(1.0, 1.0, 1.0); 16];
         let mut job = job_settings.create_job(lifespan, rates);
@@ -185,7 +249,7 @@ mod tests {
 
     #[test]
     pub fn calculateincome_fica_raise_10tax() {
-        let job_settings = JobSettings::new(1000.0, Fica::Participant { ss_rate: 0.0625 }, RaiseSettings {amount: 1.0625, adjust_for_inflation: true} );
+        let job_settings = JobSettings::new(1000.0, Fica::Participant { ss_rate: 0.0625 }, RaiseSettings {amount: 1.0625, adjust_for_inflation: true}, vec![] );
         let lifespan = Lifespan::new(16);
         let rates = vec![Rate::new(1.0, 1.0, 1.002); 16];
         let mut job = job_settings.create_job(lifespan, rates);
@@ -196,5 +260,65 @@ mod tests {
         }
 
         assert_vecfloat_absolute(job.get_net_income().clone(), vec![837.50, 837.50, 837.50, 837.50, 837.50, 837.50, 837.50, 837.50, 837.50, 837.50, 837.50, 837.50, 911.436491945, 911.436491945, 911.436491945, 911.436491945]);
+    }
+
+    #[test]
+    pub fn calculateincome_fica_raise_10tax_employeepretax401k() {
+        let asset_allocation = AssetAllocation::new_linear_glide(1, 0.5, 1, 0.5);
+        let account = AccountSettings::new(0.0, &asset_allocation);
+        let account_contributions = AccountContributionSettings { account, contribution_pct: 0.08, contribution_source: AccountContributionSource::Employee, tax: AccountContributionTaxability::PreTax };
+        let job_settings = JobSettings::new(1000.0, Fica::Participant { ss_rate: 0.0625 }, RaiseSettings {amount: 1.0625, adjust_for_inflation: true}, vec![account_contributions] );
+        let lifespan = Lifespan::new(16);
+        let rates = vec![Rate::new(1.006, 1.0, 1.002); 16];
+        let mut job = job_settings.create_job(lifespan, rates);
+        let mut tax = get_tax_mock(0.1);
+
+        for period in lifespan.iter() {
+            job.account_contributions[0].account.rebalance_and_invest_next_period(period);
+            job.calculate_income_for_period(period, &mut tax);
+        }
+
+        assert_vecfloat_absolute(job.get_net_income().clone(), vec![765.5, 765.5, 765.5, 765.5, 765.5, 765.5, 765.5, 765.5, 765.5, 765.5, 765.5, 765.5, 833.080160697, 833.080160697, 833.080160697, 833.080160697]);
+        assert_vecfloat_absolute(job.account_contributions[0].account.balance().to_vec(), vec![80.0, 160.24, 240.72072, 321.44288216, 402.40721080648, 483.614432438899, 565.065275736216, 646.760471563425, 728.700752978115, 810.886855237049, 893.31951580276, 975.999474350168, 1065.99006304858, 1156.25062351308, 1246.78196565898, 1337.58490183132]);
+    }
+
+    #[test]
+    pub fn calculateincome_fica_raise_10tax_employerpretax401k() {
+        let asset_allocation = AssetAllocation::new_linear_glide(1, 0.5, 1, 0.5);
+        let account = AccountSettings::new(0.0, &asset_allocation);
+        let account_contributions = AccountContributionSettings { account, contribution_pct: 0.08, contribution_source: AccountContributionSource::Employer, tax: AccountContributionTaxability::PreTax };
+        let job_settings = JobSettings::new(1000.0, Fica::Participant { ss_rate: 0.0625 }, RaiseSettings {amount: 1.0625, adjust_for_inflation: true}, vec![account_contributions] );
+        let lifespan = Lifespan::new(16);
+        let rates = vec![Rate::new(1.006, 1.0, 1.002); 16];
+        let mut job = job_settings.create_job(lifespan, rates);
+        let mut tax = get_tax_mock(0.1);
+
+        for period in lifespan.iter() {
+            job.account_contributions[0].account.rebalance_and_invest_next_period(period);
+            job.calculate_income_for_period(period, &mut tax);
+        }
+
+        assert_vecfloat_absolute(job.get_net_income().clone(), vec![837.50, 837.50, 837.50, 837.50, 837.50, 837.50, 837.50, 837.50, 837.50, 837.50, 837.50, 837.50, 911.436491945, 911.436491945, 911.436491945, 911.436491945]);
+        assert_vecfloat_absolute(job.account_contributions[0].account.balance().to_vec(), vec![80.0, 160.24, 240.72072, 321.44288216, 402.40721080648, 483.614432438899, 565.065275736216, 646.760471563425, 728.700752978115, 810.886855237049, 893.31951580276, 975.999474350168, 1065.99006304858, 1156.25062351308, 1246.78196565898, 1337.58490183132]);
+    }
+
+    #[test]
+    pub fn calculateincome_fica_raise_10tax_employeeposttax401k() {
+        let asset_allocation = AssetAllocation::new_linear_glide(1, 0.5, 1, 0.5);
+        let account = AccountSettings::new(0.0, &asset_allocation);
+        let account_contributions = AccountContributionSettings { account, contribution_pct: 0.08, contribution_source: AccountContributionSource::Employee, tax: AccountContributionTaxability::PostTax };
+        let job_settings = JobSettings::new(1000.0, Fica::Participant { ss_rate: 0.0625 }, RaiseSettings {amount: 1.0625, adjust_for_inflation: true}, vec![account_contributions] );
+        let lifespan = Lifespan::new(16);
+        let rates = vec![Rate::new(1.006, 1.0, 1.002); 16];
+        let mut job = job_settings.create_job(lifespan, rates);
+        let mut tax = get_tax_mock(0.1);
+
+        for period in lifespan.iter() {
+            job.account_contributions[0].account.rebalance_and_invest_next_period(period);
+            job.calculate_income_for_period(period, &mut tax);
+        }
+
+        assert_vecfloat_absolute(job.get_net_income().clone(), vec![757.5, 757.5, 757.5, 757.5, 757.5, 757.5, 757.5, 757.5, 757.5, 757.5, 757.5, 757.5, 824.37390167, 824.37390167, 824.37390167, 824.37390167, ]);
+        assert_vecfloat_absolute(job.account_contributions[0].account.balance().to_vec(), vec![80.0, 160.24, 240.72072, 321.44288216, 402.40721080648, 483.614432438899, 565.065275736216, 646.760471563425, 728.700752978115, 810.886855237049, 893.31951580276, 975.999474350168, 1065.99006304858, 1156.25062351308, 1246.78196565898, 1337.58490183132]);
     }
 }
