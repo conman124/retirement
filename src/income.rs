@@ -94,8 +94,19 @@ impl<'a> JobSettings<'a> {
     }
 }
 
+impl<'a> Job<'a> {
+    pub fn retire(self) -> (f64, Vec<Account<'a>>) {
+        (
+            self.net_income[self.net_income.len()-12..].iter().sum(),
+            self.account_contributions.into_iter().map(|a| {a.account}).collect()
+        )
+    }
+}
+
 impl<'a> IncomeProvider for Job<'a> {
     fn calculate_income_for_period(&mut self, period: Period, tax: &mut impl TaxCollector) {
+        assert!(period.get() < self.net_income.len());
+
         let gross = if period.get() == 0 {
             self.starting_gross_income
         } else if !period.is_new_year() {
@@ -156,6 +167,8 @@ impl<'a> IncomeProvider for Job<'a> {
 
 #[cfg(test)]
 mod tests {
+    use assert_float_eq::*;
+
     use super::*;
     use crate::assets::AssetAllocation;
     use crate::util::tests::assert_vecfloat_absolute;
@@ -321,4 +334,26 @@ mod tests {
         assert_vecfloat_absolute(job.get_net_income().clone(), vec![757.5, 757.5, 757.5, 757.5, 757.5, 757.5, 757.5, 757.5, 757.5, 757.5, 757.5, 757.5, 824.37390167, 824.37390167, 824.37390167, 824.37390167, ]);
         assert_vecfloat_absolute(job.account_contributions[0].account.balance().to_vec(), vec![80.0, 160.24, 240.72072, 321.44288216, 402.40721080648, 483.614432438899, 565.065275736216, 646.760471563425, 728.700752978115, 810.886855237049, 893.31951580276, 975.999474350168, 1065.99006304858, 1156.25062351308, 1246.78196565898, 1337.58490183132]);
     }
+
+    #[test]
+    pub fn retire_fica_raise_10tax_employerpretax401k() {
+        let asset_allocation = AssetAllocation::new_linear_glide(1, 0.5, 1, 0.5);
+        let account = AccountSettings::new(0.0, &asset_allocation);
+        let account_contributions = AccountContributionSettings { account, contribution_pct: 0.08, contribution_source: AccountContributionSource::Employer, tax: AccountContributionTaxability::PreTax };
+        let job_settings = JobSettings::new(1000.0, Fica::Participant { ss_rate: 0.0625 }, RaiseSettings {amount: 1.0625, adjust_for_inflation: true}, vec![account_contributions] );
+        let lifespan = Lifespan::new(16);
+        let rates = vec![Rate::new(1.006, 1.0, 1.002); 16];
+        let mut job = job_settings.create_job(lifespan, rates);
+        let mut tax = get_tax_mock(0.1);
+
+        for period in lifespan.iter() {
+            job.account_contributions[0].account.rebalance_and_invest_next_period(period);
+            job.calculate_income_for_period(period, &mut tax);
+        }
+
+        let (annual_net_salary, _) = job.retire();
+
+        assert_float_absolute_eq!(annual_net_salary, 10345.74596778);
+    }
+
 }
