@@ -4,9 +4,11 @@ use crate::rates::Rate;
 use crate::simplifying_assumption;
 use crate::taxes::{TaxCollector, Money};
 
-pub trait IncomeProvider {
+pub trait IncomeProvider<'a> {
     fn calculate_income_for_period(&mut self, period: Period, tax: &mut impl TaxCollector);
     fn get_net_income(&self) -> &Vec<f64>;
+    fn retire(self) -> (f64, Vec<Account<'a>>);
+    fn account_contributions(&self) -> &[AccountContribution<'a>];
 }
 
 simplifying_assumption!("There is no cap on social security contributions/benefits. \
@@ -94,16 +96,7 @@ impl<'a> JobSettings<'a> {
     }
 }
 
-impl<'a> Job<'a> {
-    pub fn retire(self) -> (f64, Vec<Account<'a>>) {
-        (
-            self.net_income[self.net_income.len()-12..].iter().sum(),
-            self.account_contributions.into_iter().map(|a| {a.account}).collect()
-        )
-    }
-}
-
-impl<'a> IncomeProvider for Job<'a> {
+impl<'a> IncomeProvider<'a> for Job<'a> {
     fn calculate_income_for_period(&mut self, period: Period, tax: &mut impl TaxCollector) {
         assert!(period.get() < self.net_income.len());
 
@@ -162,6 +155,17 @@ impl<'a> IncomeProvider for Job<'a> {
 
     fn get_net_income(&self) -> &Vec<f64> {
         &self.net_income
+    }
+
+    fn retire(self) -> (f64, Vec<Account<'a>>) {
+        (
+            self.net_income[self.net_income.len()-12..].iter().sum(),
+            self.account_contributions.into_iter().map(|a| {a.account}).collect()
+        )
+    }
+
+    fn account_contributions(&self) -> &[AccountContribution<'a>] {
+        &self.account_contributions
     }
 }
 

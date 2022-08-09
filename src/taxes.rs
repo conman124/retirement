@@ -25,6 +25,7 @@ impl TaxResult {
     pub fn leftover(&self) -> f64 { self.leftover } 
 }
 
+#[derive(Clone,Copy)]
 pub struct TaxBracket {
     pub floor: f64,
     pub rate: f64,
@@ -33,6 +34,7 @@ pub struct TaxBracket {
 simplifying_assumption!("There are no tax credits.  This will lower the pre-retirement net \
     income, and depending on your settings might lower the retirement withdrawal amount.");
 // TODO Add support for long term capital gains rates
+#[derive(Clone)]
 pub struct TaxSettings {
     pub brackets: Vec<TaxBracket>,
     pub adjust_bracket_floors_for_inflation: bool,
