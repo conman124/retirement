@@ -1,6 +1,6 @@
 use rand::prelude::*;
 use rand::distributions::Uniform;
-use crate::income::{JobSettings, Job, IncomeProvider};
+use crate::income::{JobSettings, IncomeProvider};
 use crate::rates::{generate_rates,Rate};
 use crate::assets::{Account};
 use crate::taxes::{TaxSettings, TaxCollector};
@@ -111,7 +111,7 @@ impl<'a> Run<'a> {
         let careerspan = Lifespan::new(career_periods);
         let rates = generate_rates(T::seed_from_u64(rng.gen()), all_rates, sublength, periods);
         // TODO figure out a way to avoid cloning rates here
-        let jobs = job_settings.create_job(lifespan, rates.clone());
+        let jobs = job_settings.create_job(lifespan, careerspan, rates.clone());
         let tax = U::new(tax_settings, rates.clone(), lifespan);
 
         let mut run = Run {
@@ -127,7 +127,7 @@ impl<'a> Run<'a> {
         run
     }
 
-    fn populate<U: TaxCollector>(&mut self, mut job: Job<'a>, mut tax: U) {
+    fn populate<T: IncomeProvider<'a>, U: TaxCollector>(&mut self, mut job: T, mut tax: U) {
         let mut life_iter = self.lifespan.iter();
 
         // Run until either we hit retirement or we die
@@ -142,14 +142,18 @@ impl<'a> Run<'a> {
             }
         }
 
-        let (pre_retirement_income, mut retirement_accounts) = job.retire();
+        let (pre_retirement_monthly_income, mut retirement_accounts) = job.retire();
         // TODO make WithdrawalStrategy smart enough to know about taxes
         let withdrawal_strategy = WithdrawalStrategyOrig::new();
 
         // TODO change withdrawal amount from pre_retirement_income
 
         for period in life_iter {
-            match withdrawal_strategy.execute(pre_retirement_income, &mut retirement_accounts, period) {
+            for account in &mut retirement_accounts {
+                account.rebalance_and_invest_next_period(period);
+            }
+
+            match withdrawal_strategy.execute(pre_retirement_monthly_income, &mut retirement_accounts, period) {
                 Ok(_) => {},
                 Err(_) => { break; }
             }
@@ -187,35 +191,53 @@ impl<'a> Simulation<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::assets::AssetAllocation;
+    use crate::assets::{AssetAllocation,AccountSettings};
+    use crate::income::{Fica,RaiseSettings,AccountContributionSettings,AccountContributionSource,AccountContributionTaxability};
+    use crate::taxes::{MockTaxCollector,TaxResult,Money};
     use super::*;
 
-/*    #[test]
+    fn get_null_tax() -> impl TaxCollector {
+        let mut null_tax = MockTaxCollector::default();
+        null_tax.expect_collect_income_taxes().returning(move |money, _period| {
+            match money {
+                Money::Taxable(amt) => TaxResult::new(0.0, amt),
+                Money::NonTaxable(amt) => TaxResult::new(0.0, amt)
+            }
+        });
+        null_tax
+    }
+
+    #[test]
     pub fn run_withadequate() {
-        let rates = vec![Rate::new(1.25, 1.0, 1.0), Rate::new(1.5, 1.25, 1.0), Rate::new(0.75, 1.25, 1.5)];
+        let rates = vec![Rate::new(1.25, 1.0, 1.0), Rate::new(1.5, 1.25, 1.0), Rate::new(0.75, 1.25, 1.5), Rate::new(1.25, 1.0, 1.0), Rate::new(1.5, 1.25, 1.0), Rate::new(0.75, 1.25, 1.5)];
         let asset_allocation = AssetAllocation::new_linear_glide(1, 0.75, 2, 0.25);
 
-        let account = AccountSettings::new(1024.0, &asset_allocation).create_account(Lifespan::new(3), rates.clone());
-        let mut run = Run { rates, accounts: vec![account], assets_adequate_periods: 0, lifespan: Lifespan::new(3), careerspan: Lifespan::new(3) };
-        run.populate(16.0);
+        let account = AccountContributionSettings::new(AccountSettings::new(2048.0, &asset_allocation), 0.25, AccountContributionSource::Employee, AccountContributionTaxability::PreTax);
+        let mut run = Run { rates: rates.clone(), assets_adequate_periods: 0, lifespan: Lifespan::new(6), careerspan: Lifespan::new(3), retirement_accounts: vec![] };
+        let job = JobSettings::new(2048.0, Fica::Exempt, RaiseSettings {amount: 1.0, adjust_for_inflation: false}, vec![account] ).create_job(Lifespan::new(6), Lifespan::new(3), rates);
+        let null_tax = get_null_tax();
+        
+        run.populate(job, null_tax);
 
-        assert_eq!(run.accounts[0].balance(), &vec![1200.0, 1634.0, 1822.25]);
-        assert_eq!(run.assets_adequate_periods, 3);
+        assert_eq!(run.retirement_accounts[0].balance(), &vec![2944.0, 4560.0, 5642.0, 4458.625, 4315.9453125, 3319.4384765625]);
+        assert_eq!(run.assets_adequate_periods, 6);
     }
 
     #[test]
     pub fn run_withinadequate() {
-        let rates = vec![Rate::new(1.25, 1.0, 1.0), Rate::new(1.25, 1.25, 1.0), Rate::new(0.75, 1.25, 1.5)];
+        let rates = vec![Rate::new(1.25, 1.0, 1.0), Rate::new(1.5, 1.25, 1.0), Rate::new(0.75, 1.25, 1.5), Rate::new(1.25, 1.0, 1.0), Rate::new(1.5, 1.25, 1.0), Rate::new(0.75, 1.25, 1.5)];
         let asset_allocation = AssetAllocation::new_linear_glide(1, 0.75, 2, 0.25);
 
-        let account = AccountSettings::new(1024.0, &asset_allocation).create_account(Lifespan::new(3), rates.clone());
-        let mut run = Run { rates, accounts: vec![account], assets_adequate_periods: 0, lifespan: Lifespan::new(3), careerspan: Lifespan::new(3) };
-        run.populate(512.0);
+        let account = AccountContributionSettings::new(AccountSettings::new(1024.0, &asset_allocation), 0.125, AccountContributionSource::Employee, AccountContributionTaxability::PreTax);
+        let mut run = Run { rates: rates.clone(), assets_adequate_periods: 0, lifespan: Lifespan::new(6), careerspan: Lifespan::new(3), retirement_accounts: vec![] };
+        let job = JobSettings::new(2048.0, Fica::Exempt, RaiseSettings {amount: 1.0, adjust_for_inflation: false}, vec![account] ).create_job(Lifespan::new(6), Lifespan::new(3), rates);
+        let null_tax = get_null_tax();
+        
+        run.populate(job, null_tax);
 
-        assert_eq!(run.accounts[0].balance(), &vec![704.0, 368.0, 0.0]);
-        assert_eq!(run.assets_adequate_periods, 2);
+        assert_eq!(run.retirement_accounts[0].balance(), &vec![1472.0, 2280.0, 2821.0, 1205.3125, 0.0, 0.0]);
+        assert_eq!(run.assets_adequate_periods, 4);
     }
-*/
     
 
     #[test]
