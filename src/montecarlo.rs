@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use rand::prelude::*;
 use rand::distributions::Uniform;
 use crate::income::{JobSettings, IncomeProvider};
@@ -90,20 +92,20 @@ impl std::ops::Add<usize> for Period {
     }
 }
 
-pub struct Run<'a> {
-    rates: Vec<Rate>,
+pub struct Run {
+    rates: Rc<Vec<Rate>>,
     assets_adequate_periods: usize,
     lifespan: Lifespan,
     careerspan: Lifespan,
-    retirement_accounts: Vec<Account<'a>>
+    retirement_accounts: Vec<Account>
 }
 
 fn calculate_periods(rng: &mut impl Rng) -> usize {
     rng.sample(Uniform::new(10, 50))
 }
 
-impl<'a> Run<'a> {
-    pub fn execute<T: SeedableRng + Rng + Clone, U: TaxCollector>(seed: u64, all_rates: &[Rate], sublength: usize, job_settings: &JobSettings<'a>, career_periods: usize, tax_settings: TaxSettings) -> Run<'a> {
+impl Run {
+    pub fn execute<T: SeedableRng + Rng + Clone, U: TaxCollector>(seed: u64, all_rates: &[Rate], sublength: usize, job_settings: &JobSettings, career_periods: usize, tax_settings: TaxSettings) -> Run {
         let mut rng = T::seed_from_u64(seed);
 
         let periods = calculate_periods(&mut rng);
@@ -111,8 +113,8 @@ impl<'a> Run<'a> {
         let careerspan = Lifespan::new(career_periods);
         let rates = generate_rates(T::seed_from_u64(rng.gen()), all_rates, sublength, periods);
         // TODO figure out a way to avoid cloning rates here
-        let jobs = job_settings.create_job(lifespan, careerspan, rates.clone());
-        let tax = U::new(tax_settings, rates.clone(), lifespan);
+        let jobs = job_settings.create_job(lifespan, careerspan, Rc::clone(&rates));
+        let tax = U::new(tax_settings, Rc::clone(&rates), lifespan);
 
         let mut run = Run {
             rates,
@@ -127,7 +129,7 @@ impl<'a> Run<'a> {
         run
     }
 
-    fn populate<T: IncomeProvider<'a>, U: TaxCollector>(&mut self, mut job: T, mut tax: U) {
+    fn populate<T: IncomeProvider, U: TaxCollector>(&mut self, mut job: T, mut tax: U) {
         let mut life_iter = self.lifespan.iter();
 
         // Run until either we hit retirement or we die
@@ -165,12 +167,12 @@ impl<'a> Run<'a> {
     }
 }
 
-pub struct Simulation<'a> {
-    runs: Vec<Run<'a>>
+pub struct Simulation {
+    runs: Vec<Run>
 }
 
-impl<'a> Simulation<'a> {
-    pub fn new<T: SeedableRng + Rng + Clone, U: TaxCollector>(seed: u64, count: usize, all_rates: &[Rate], sublength: usize, job_settings: JobSettings<'a>, career_periods: usize, tax_settings: TaxSettings) -> Simulation<'a> {
+impl Simulation {
+    pub fn new<T: SeedableRng + Rng + Clone, U: TaxCollector>(seed: u64, count: usize, all_rates: &[Rate], sublength: usize, job_settings: JobSettings, career_periods: usize, tax_settings: TaxSettings) -> Simulation {
         let runs: Vec<Run> = (0..count).map(|seed2| {
             // TODO this seed stuff is kinda awful
             let new_seed = (seed as usize * count) as u64 + (seed2 as u64);
@@ -209,11 +211,11 @@ mod tests {
 
     #[test]
     pub fn run_withadequate() {
-        let rates = vec![Rate::new(1.25, 1.0, 1.0), Rate::new(1.5, 1.25, 1.0), Rate::new(0.75, 1.25, 1.5), Rate::new(1.25, 1.0, 1.0), Rate::new(1.5, 1.25, 1.0), Rate::new(0.75, 1.25, 1.5)];
-        let asset_allocation = AssetAllocation::new_linear_glide(1, 0.75, 2, 0.25);
+        let rates = Rc::new(vec![Rate::new(1.25, 1.0, 1.0), Rate::new(1.5, 1.25, 1.0), Rate::new(0.75, 1.25, 1.5), Rate::new(1.25, 1.0, 1.0), Rate::new(1.5, 1.25, 1.0), Rate::new(0.75, 1.25, 1.5)]);
+        let asset_allocation = Rc::new(AssetAllocation::new_linear_glide(1, 0.75, 2, 0.25));
 
-        let account = AccountContributionSettings::new(AccountSettings::new(2048.0, &asset_allocation), 0.25, AccountContributionSource::Employee, AccountContributionTaxability::PreTax);
-        let mut run = Run { rates: rates.clone(), assets_adequate_periods: 0, lifespan: Lifespan::new(6), careerspan: Lifespan::new(3), retirement_accounts: vec![] };
+        let account = AccountContributionSettings::new(AccountSettings::new(2048.0, asset_allocation), 0.25, AccountContributionSource::Employee, AccountContributionTaxability::PreTax);
+        let mut run = Run { rates: Rc::clone(&rates), assets_adequate_periods: 0, lifespan: Lifespan::new(6), careerspan: Lifespan::new(3), retirement_accounts: vec![] };
         let job = JobSettings::new(2048.0, Fica::Exempt, RaiseSettings {amount: 1.0, adjust_for_inflation: false}, vec![account] ).create_job(Lifespan::new(6), Lifespan::new(3), rates);
         let null_tax = get_null_tax();
         
@@ -225,11 +227,11 @@ mod tests {
 
     #[test]
     pub fn run_withinadequate() {
-        let rates = vec![Rate::new(1.25, 1.0, 1.0), Rate::new(1.5, 1.25, 1.0), Rate::new(0.75, 1.25, 1.5), Rate::new(1.25, 1.0, 1.0), Rate::new(1.5, 1.25, 1.0), Rate::new(0.75, 1.25, 1.5)];
-        let asset_allocation = AssetAllocation::new_linear_glide(1, 0.75, 2, 0.25);
+        let rates = Rc::new(vec![Rate::new(1.25, 1.0, 1.0), Rate::new(1.5, 1.25, 1.0), Rate::new(0.75, 1.25, 1.5), Rate::new(1.25, 1.0, 1.0), Rate::new(1.5, 1.25, 1.0), Rate::new(0.75, 1.25, 1.5)]);
+        let asset_allocation = Rc::new(AssetAllocation::new_linear_glide(1, 0.75, 2, 0.25));
 
-        let account = AccountContributionSettings::new(AccountSettings::new(1024.0, &asset_allocation), 0.125, AccountContributionSource::Employee, AccountContributionTaxability::PreTax);
-        let mut run = Run { rates: rates.clone(), assets_adequate_periods: 0, lifespan: Lifespan::new(6), careerspan: Lifespan::new(3), retirement_accounts: vec![] };
+        let account = AccountContributionSettings::new(AccountSettings::new(1024.0, asset_allocation), 0.125, AccountContributionSource::Employee, AccountContributionTaxability::PreTax);
+        let mut run = Run { rates: Rc::clone(&rates), assets_adequate_periods: 0, lifespan: Lifespan::new(6), careerspan: Lifespan::new(3), retirement_accounts: vec![] };
         let job = JobSettings::new(2048.0, Fica::Exempt, RaiseSettings {amount: 1.0, adjust_for_inflation: false}, vec![account] ).create_job(Lifespan::new(6), Lifespan::new(3), rates);
         let null_tax = get_null_tax();
         

@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::{rates::Rate, montecarlo::{Period, Lifespan}};
 
 pub struct AssetAllocation {
@@ -42,37 +44,37 @@ impl AssetAllocation {
     }
 }
 
-pub struct AccountSettings<'a> {
+pub struct AccountSettings {
     starting_balance: f64,
-    allocation: &'a AssetAllocation
+    allocation: Rc<AssetAllocation>
 }
 
-pub struct Account<'a> {
+pub struct Account {
     starting_balance: f64,
     balance: Vec<f64>,
-    allocation: &'a AssetAllocation,
-    rates: Vec<Rate>
+    allocation: Rc<AssetAllocation>,
+    rates: Rc<Vec<Rate>>
 }
 
-impl<'a> AccountSettings<'a> {
-    pub fn new(starting_balance: f64, allocation: &'a AssetAllocation) -> AccountSettings<'a> {
+impl AccountSettings {
+    pub fn new(starting_balance: f64, allocation: Rc<AssetAllocation>) -> AccountSettings {
         AccountSettings { starting_balance, allocation }
     }
 
-    pub fn create_account(&self, lifespan: Lifespan, rates: Vec<Rate>) -> Account<'a> {
+    pub fn create_account(&self, lifespan: Lifespan, rates: Rc<Vec<Rate>>) -> Account {
         assert_eq!(rates.len(), lifespan.periods());
         let balance = vec![0.0; lifespan.periods()];
 
-        Account::<'a> {
+        Account {
             starting_balance: self.starting_balance,
             balance,
-            allocation: self.allocation,
+            allocation: Rc::clone(&self.allocation),
             rates: rates
         }
     }
 }
 
-impl<'a> Account<'a> {
+impl Account {
     pub fn rebalance_and_invest_next_period(&mut self, period: Period) {
         assert!(period.get() < self.balance.len());
         assert_eq!(self.balance[period.get()], 0.0);
@@ -166,8 +168,8 @@ mod tests {
     #[test]
     fn account_rebalanceandinvest_period0() {
         // Use powers of two to make the floating point math work out roundly
-        let allocation = AssetAllocation::new_linear_glide(4, 0.75, 2, 0.25);
-        let mut account = Account{ starting_balance: 1024.0, balance: vec![0.0], allocation: &allocation, rates: vec![Rate::new(2.0, 0.5, 1.0)] };
+        let allocation = Rc::new(AssetAllocation::new_linear_glide(4, 0.75, 2, 0.25));
+        let mut account = Account{ starting_balance: 1024.0, balance: vec![0.0], allocation: allocation, rates: Rc::new(vec![Rate::new(2.0, 0.5, 1.0)]) };
         
         account.rebalance_and_invest_next_period(Period::new(0));
         assert_eq!(account.balance, vec![1664.0]);
@@ -176,8 +178,8 @@ mod tests {
     #[test]
     fn account_rebalanceandinvest_period1() {
         // Use powers of two to make the floating point math work out roundly
-        let allocation = AssetAllocation::new_linear_glide(4, 0.75, 2, 0.25);
-        let mut account = Account{ starting_balance: 1024.0, balance: vec![1664.0, 0.0], allocation: &allocation, rates: vec![Rate::new(2.0, 0.5, 1.0), Rate::new(2.0, 0.5, 1.0)] };
+        let allocation = Rc::new(AssetAllocation::new_linear_glide(4, 0.75, 2, 0.25));
+        let mut account = Account{ starting_balance: 1024.0, balance: vec![1664.0, 0.0], allocation: allocation, rates: Rc::new(vec![Rate::new(2.0, 0.5, 1.0), Rate::new(2.0, 0.5, 1.0)]) };
         
         account.rebalance_and_invest_next_period(Period::new(1));
         assert_eq!(account.balance, vec![1664.0, 2704.0]);
@@ -185,8 +187,8 @@ mod tests {
 
     #[test]
     fn account_withdrawall() {
-        let allocation = AssetAllocation::new_linear_glide(4, 0.75, 2, 0.25);
-        let mut account = Account{ starting_balance: 1024.0, balance: vec![1024.0; 2], allocation: &allocation, rates: vec![] };
+        let allocation = Rc::new(AssetAllocation::new_linear_glide(4, 0.75, 2, 0.25));
+        let mut account = Account{ starting_balance: 1024.0, balance: vec![1024.0; 2], allocation: allocation, rates: Default::default() };
 
         account.withdraw_from_period(1024.0, Period::new(1));
         assert_eq!(account.balance, vec![1024.0, 0.0]);
@@ -195,8 +197,8 @@ mod tests {
 
     #[test]
     fn account_withdrawsome() {
-        let allocation = AssetAllocation::new_linear_glide(4, 0.75, 2, 0.25);
-        let mut account = Account{ starting_balance: 1024.0, balance: vec![1024.0; 2], allocation: &allocation, rates: vec![] };
+        let allocation = Rc::new(AssetAllocation::new_linear_glide(4, 0.75, 2, 0.25));
+        let mut account = Account{ starting_balance: 1024.0, balance: vec![1024.0; 2], allocation: allocation, rates: Default::default() };
 
         account.withdraw_from_period(512.0, Period::new(1));
         assert_eq!(account.balance, vec![1024.0, 512.0]);
@@ -206,16 +208,16 @@ mod tests {
     #[test]
     #[should_panic]
     fn account_withdrawmore() {
-        let allocation = AssetAllocation::new_linear_glide(4, 0.75, 2, 0.25);
-        let mut account = Account{ starting_balance: 1024.0, balance: vec![1024.0; 2], allocation: &allocation, rates: vec![] };
+        let allocation = Rc::new(AssetAllocation::new_linear_glide(4, 0.75, 2, 0.25));
+        let mut account = Account{ starting_balance: 1024.0, balance: vec![1024.0; 2], allocation: allocation, rates: Default::default() };
 
         account.withdraw_from_period(2048.0, Period::new(1));
     }
 
     #[test]
     fn account_attemptwithdrawall() {
-        let allocation = AssetAllocation::new_linear_glide(4, 0.75, 2, 0.25);
-        let mut account = Account{ starting_balance: 1024.0, balance: vec![1024.0; 2], allocation: &allocation, rates: vec![] };
+        let allocation = Rc::new(AssetAllocation::new_linear_glide(4, 0.75, 2, 0.25));
+        let mut account = Account{ starting_balance: 1024.0, balance: vec![1024.0; 2], allocation: allocation, rates: Default::default() };
 
         let shortfall = account.attempt_withdrawal_with_shortfall(1024.0, Period::new(1));
         assert_eq!(account.balance, vec![1024.0, 0.0]);
@@ -225,8 +227,8 @@ mod tests {
 
     #[test]
     fn account_attemptwithdrawsome() {
-        let allocation = AssetAllocation::new_linear_glide(4, 0.75, 2, 0.25);
-        let mut account = Account{ starting_balance: 1024.0, balance: vec![1024.0; 2], allocation: &allocation, rates: vec![] };
+        let allocation = Rc::new(AssetAllocation::new_linear_glide(4, 0.75, 2, 0.25));
+        let mut account = Account{ starting_balance: 1024.0, balance: vec![1024.0; 2], allocation: allocation, rates: Default::default() };
 
         let shortfall = account.attempt_withdrawal_with_shortfall(512.0, Period::new(1));
         assert_eq!(account.balance, vec![1024.0, 512.0]);
@@ -236,8 +238,8 @@ mod tests {
 
     #[test]
     fn account_attemptwithdrawmore() {
-        let allocation = AssetAllocation::new_linear_glide(4, 0.75, 2, 0.25);
-        let mut account = Account{ starting_balance: 1024.0, balance: vec![1024.0; 2], allocation: &allocation, rates: vec![] };
+        let allocation = Rc::new(AssetAllocation::new_linear_glide(4, 0.75, 2, 0.25));
+        let mut account = Account{ starting_balance: 1024.0, balance: vec![1024.0; 2], allocation: allocation, rates: Default::default() };
 
         let shortfall = account.attempt_withdrawal_with_shortfall(2048.0, Period::new(1));
         assert_eq!(account.balance, vec![1024.0, 0.0]);

@@ -1,36 +1,42 @@
 use rand::prelude::*;
 use crate::montecarlo::Lifespan;
+use crate::util::get_thread_local_rc;
+use std::rc::Rc;
+
 
 pub enum Gender {
     Male,
     Female
 }
 
-pub struct PersonSettings<'a> {
+pub struct PersonSettings {
     age_years: usize,
     age_months: usize,
-    annual_death_rates: &'a [f64]
+    annual_death_rates: Rc<[f64]>
 }
 
 pub struct Person {
     lifespan: Lifespan
 }
 
-impl<'a> PersonSettings<'a> {
-    fn new(age_years: usize, age_months: usize, annual_death_rates: &'a [f64]) -> PersonSettings<'a> {
+impl PersonSettings {
+    fn new(age_years: usize, age_months: usize, annual_death_rates: Rc<[f64]>) -> PersonSettings {
         PersonSettings { age_years, age_months, annual_death_rates }
     }
 
-    pub fn new_with_default_death_rates(age_years: usize, age_months: usize, gender: Gender) -> PersonSettings<'a> {
+    pub fn new_with_default_death_rates(age_years: usize, age_months: usize, gender: Gender) -> PersonSettings {
         let rates = match gender {
             Gender::Male => &life_expectancy::ANNUAL_DEATH_MALE_BUILTIN,
             Gender::Female => &life_expectancy::ANNUAL_DEATH_FEMALE_BUILTIN,
         };
 
+        let rates = get_thread_local_rc(rates);
+
         PersonSettings::new(age_years, age_months, rates)
     }
 
     pub fn create_person<R: Rng>(&self, rng: &mut R) -> Person {
+
         let lifespan = life_expectancy::calculate_periods(rng, &self.annual_death_rates[self.age_years..], self.age_months);
 
         Person { 

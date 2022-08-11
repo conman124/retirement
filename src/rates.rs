@@ -1,6 +1,6 @@
 use rand::prelude::*;
 use serde::Deserialize;
-use std::cmp::min;
+use std::{cmp::min, rc::Rc};
 
 #[derive(Copy, Clone, Debug, PartialEq, Deserialize)]
 pub struct Rate {
@@ -18,12 +18,19 @@ impl Rate {
 
 include!(concat!(env!("OUT_DIR"), "/rates.rs"));
 
-pub fn generate_rates(rng: impl Rng, rates_in: &[Rate], sublength: usize, length: usize) -> Vec<Rate> {
+pub fn generate_rates_with_builtin(rng: impl Rng, sublength: usize, length: usize) -> Rc<Vec<Rate>> {
+
+    let rates = &RATES_BUILTIN;
+
+    return generate_rates(rng, rates.as_ref(), sublength, length);
+}
+
+pub fn generate_rates(rng: impl Rng, rates_in: &[Rate], sublength: usize, length: usize) -> Rc<Vec<Rate>> {
     let dist = rand::distributions::Uniform::new(0, rates_in.len() + sublength - 1);
     generate_rates_with_distribution(rng, rates_in, sublength, length, dist)
 }
 
-fn generate_rates_with_distribution(mut rng: impl Rng, rates_in: &[Rate], sublength: usize, length: usize, dist: impl Distribution<usize>) -> Vec<Rate> {
+fn generate_rates_with_distribution(mut rng: impl Rng, rates_in: &[Rate], sublength: usize, length: usize, dist: impl Distribution<usize>) -> Rc<Vec<Rate>> {
     assert!(sublength <= rates_in.len());
     assert!(sublength != 0);
     assert!(rates_in.len() != 0);
@@ -48,7 +55,7 @@ fn generate_rates_with_distribution(mut rng: impl Rng, rates_in: &[Rate], sublen
         rates.extend_from_slice(slice);
 
         if rates.len() == length {
-            return rates;
+            return Rc::new(rates);
         }
 
         assert!(rates.len() < length);
@@ -110,7 +117,7 @@ mod tests {
         let out = generate_rates_with_distribution(StepRng::new(0, 1), &rates_in, 1, 6, MyUniform::new(3));
         let expected: Vec<Rate> = Vec::from([0usize, 1, 2, 0, 1, 2].map(|i| { rate_const(i) }));
 
-        assert_eq!(out, expected);
+        assert_eq!(out[..], expected);
     }
 
     #[test]
@@ -128,7 +135,7 @@ mod tests {
         let out = generate_rates_with_distribution(StepRng::new(0, 1), &rates_in, 3, 18, MyUniform::new(8));
         let expected: Vec<Rate> = Vec::from([0usize, 0, 1, 0, 1, 2, 1, 2, 3, 2, 3, 4, 3, 4, 5, 4, 5, 5].map(|i| { rate_const(i) }));
 
-        assert_eq!(out, expected);
+        assert_eq!(out[..], expected);
     }
 
     #[test]
@@ -143,7 +150,7 @@ mod tests {
         let out = generate_rates_with_distribution(StepRng::new(0, 1), &rates_in, 3, 10, MyUniform::new(8));
         let expected: Vec<Rate> = Vec::from([0usize, 0, 1, 0, 1, 2, 1, 2, 3, 2].map(|i| { rate_const(i) }));
 
-        assert_eq!(out, expected);
+        assert_eq!(out[..], expected);
     }
 
     #[test]
@@ -163,7 +170,7 @@ mod tests {
         let out = generate_rates_with_distribution(StepRng::new(0, 1), &rates_in, 3, 20, MyUniform::new(8));
         let expected: Vec<Rate> = Vec::from([0usize, 0, 1, 0, 1, 2, 1, 2, 3, 2, 3, 4, 3, 4, 5, 4, 5, 5, 0, 0].map(|i| { rate_const(i) }));
 
-        assert_eq!(out, expected);
+        assert_eq!(out[..], expected);
     }
 
     #[test]
@@ -172,6 +179,6 @@ mod tests {
         let out = generate_rates(rand_pcg::Pcg64Mcg::new(1337), &rates_in, 3, 100);
         let expected: Vec<Rate> = Vec::from([0, 1, 0, 0, 1, 1, 2, 3, 0, 1, 1, 2, 3, 2, 3, 4, 1, 2, 3, 5, 3, 4, 5, 5, 2, 3, 4, 1, 2, 3, 0, 1, 0, 1, 2, 3, 4, 0, 1, 2, 2, 3, 4, 0, 1, 2, 0, 3, 4, 5, 3, 4, 5, 3, 4, 5, 2, 3, 4, 3, 4, 5, 1, 2, 3, 0, 1, 3, 4, 5, 1, 2, 3, 0, 1, 2, 0, 1, 2, 3, 4, 5, 0, 1, 2, 1, 2, 3, 1, 2, 3, 4, 5, 2, 3, 4, 5, 4, 5, 1].map(|i| { rate_const(i) }));
 
-        assert_eq!(out, expected);
+        assert_eq!(out[..], expected);
     }
 }

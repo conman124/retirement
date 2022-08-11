@@ -1,22 +1,22 @@
 use crate::assets::Account;
 use crate::montecarlo::Period;
 
-pub trait WithdrawalStrategy<'a> {
-    fn execute(&self, withdrawal: f64, accounts: &mut Vec<Account<'a>>, period: Period) -> Result<(), f64>;
+pub trait WithdrawalStrategy {
+    fn execute(&self, withdrawal: f64, accounts: &mut Vec<Account>, period: Period) -> Result<(), f64>;
 }
 
 pub struct WithdrawalStrategyOrig {
 
 }
 
-impl<'a> WithdrawalStrategyOrig {
+impl WithdrawalStrategyOrig {
     pub fn new() -> WithdrawalStrategyOrig {
         WithdrawalStrategyOrig { }
     }
 }
 
-impl<'a> WithdrawalStrategy<'a> for WithdrawalStrategyOrig {
-    fn execute(&self, withdrawal: f64, accounts: &mut Vec<Account<'a>>, period: Period) -> Result<(), f64> {
+impl WithdrawalStrategy for WithdrawalStrategyOrig {
+    fn execute(&self, withdrawal: f64, accounts: &mut Vec<Account>, period: Period) -> Result<(), f64> {
         let total: f64 = accounts.iter().map(|a| a.balance()[period.get()]).sum();
         let withdrawals_per_account: Vec<f64> = accounts.iter().map(|a| (a.balance()[period.get()] / total) * withdrawal).collect();
         
@@ -35,6 +35,8 @@ impl<'a> WithdrawalStrategy<'a> for WithdrawalStrategyOrig {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use super::*;
     use crate::assets::{AssetAllocation,AccountSettings};
     use crate::montecarlo::Lifespan;
@@ -42,9 +44,9 @@ mod tests {
 
     #[test]
     pub fn withdrawalstrategyorig_executesuccess() {
-        let dummy_allocation = AssetAllocation::new(vec![1.0]);
-        let mut account1 = AccountSettings::new(1536.0, &dummy_allocation).create_account(Lifespan::new(1), vec![Rate::new(1.0, 1.0, 1.0)]);
-        let mut account2 = AccountSettings::new(512.0, &dummy_allocation).create_account(Lifespan::new(1), vec![Rate::new(1.0, 1.0, 1.0)]);
+        let dummy_allocation = Rc::new(AssetAllocation::new(vec![1.0]));
+        let mut account1 = AccountSettings::new(1536.0, Rc::clone(&dummy_allocation)).create_account(Lifespan::new(1), Rc::new(vec![Rate::new(1.0, 1.0, 1.0)]));
+        let mut account2 = AccountSettings::new(512.0, dummy_allocation).create_account(Lifespan::new(1), Rc::new(vec![Rate::new(1.0, 1.0, 1.0)]));
         account1.rebalance_and_invest_next_period(Period::new(0));
         account2.rebalance_and_invest_next_period(Period::new(0));
 
@@ -56,9 +58,9 @@ mod tests {
 
     #[test]
     pub fn withdrawalstrategyorig_executefailure() {
-        let dummy_allocation = AssetAllocation::new(vec![1.0]);
-        let mut account1 = AccountSettings::new(1536.0, &dummy_allocation).create_account(Lifespan::new(1), vec![Rate::new(1.0, 1.0, 1.0)]);
-        let mut account2 = AccountSettings::new(512.0, &dummy_allocation).create_account(Lifespan::new(1), vec![Rate::new(1.0, 1.0, 1.0)]);
+        let dummy_allocation = Rc::new(AssetAllocation::new(vec![1.0]));
+        let mut account1 = AccountSettings::new(1536.0, Rc::clone(&dummy_allocation)).create_account(Lifespan::new(1), Rc::new(vec![Rate::new(1.0, 1.0, 1.0)]));
+        let mut account2 = AccountSettings::new(512.0, dummy_allocation).create_account(Lifespan::new(1), Rc::new(vec![Rate::new(1.0, 1.0, 1.0)]));
         account1.rebalance_and_invest_next_period(Period::new(0));
         account2.rebalance_and_invest_next_period(Period::new(0));
 

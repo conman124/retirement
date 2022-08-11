@@ -1,4 +1,6 @@
 use std::fmt::Display;
+use std::rc::Rc;
+use std::thread::LocalKey;
 
 #[macro_export]
 macro_rules! simplifying_assumption {
@@ -27,6 +29,16 @@ where T: Into<f64> + Copy
     pub fn as_percent(&self) -> String {
         format!("{:.1}%", self.num.into() / self.denum.into() * 100.0)
     }
+}
+
+pub fn get_thread_local_rc<T: ?Sized>(key: &'static LocalKey<Rc<T>>) -> Rc<T> {
+    let mut option = Option::default();
+
+    key.with(|inner| {
+        option.replace(Rc::clone(inner));
+    });
+
+    option.unwrap()
 }
 
 #[cfg(test)]
