@@ -46,7 +46,9 @@ impl PersonSettings {
 }
 
 impl Person {
-
+    pub fn lifespan(&self) -> Lifespan {
+        self.lifespan
+    }
 }
 
 mod life_expectancy {

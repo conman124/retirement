@@ -1,8 +1,8 @@
 use std::rc::Rc;
 
 use rand::prelude::*;
-use rand::distributions::Uniform;
 use crate::income::{JobSettings, IncomeProvider};
+use crate::person::PersonSettings;
 use crate::rates::{generate_rates,Rate};
 use crate::assets::{Account};
 use crate::taxes::{TaxSettings, TaxCollector};
@@ -100,19 +100,14 @@ pub struct Run {
     retirement_accounts: Vec<Account>
 }
 
-fn calculate_periods(rng: &mut impl Rng) -> usize {
-    rng.sample(Uniform::new(10, 50))
-}
-
 impl Run {
-    pub fn execute<T: SeedableRng + Rng + Clone, U: TaxCollector>(seed: u64, all_rates: &[Rate], sublength: usize, job_settings: &JobSettings, career_periods: usize, tax_settings: TaxSettings) -> Run {
+    pub fn execute<T: SeedableRng + Rng + Clone, U: TaxCollector>(seed: u64, all_rates: &[Rate], sublength: usize, job_settings: &JobSettings, person_settings: &PersonSettings, career_periods: usize, tax_settings: TaxSettings) -> Run {
         let mut rng = T::seed_from_u64(seed);
 
-        let periods = calculate_periods(&mut rng);
-        let lifespan = Lifespan::new(periods);
+        let person = person_settings.create_person(&mut rng);
+        let lifespan = person.lifespan();
         let careerspan = Lifespan::new(career_periods);
-        let rates = generate_rates(T::seed_from_u64(rng.gen()), all_rates, sublength, periods);
-        // TODO figure out a way to avoid cloning rates here
+        let rates = generate_rates(T::seed_from_u64(rng.gen()), all_rates, sublength, lifespan.periods());
         let jobs = job_settings.create_job(lifespan, careerspan, Rc::clone(&rates));
         let tax = U::new(tax_settings, Rc::clone(&rates), lifespan);
 
@@ -172,12 +167,12 @@ pub struct Simulation {
 }
 
 impl Simulation {
-    pub fn new<T: SeedableRng + Rng + Clone, U: TaxCollector>(seed: u64, count: usize, all_rates: &[Rate], sublength: usize, job_settings: JobSettings, career_periods: usize, tax_settings: TaxSettings) -> Simulation {
+    pub fn new<T: SeedableRng + Rng + Clone, U: TaxCollector>(seed: u64, count: usize, all_rates: &[Rate], sublength: usize, job_settings: JobSettings, person_settings: PersonSettings, career_periods: usize, tax_settings: TaxSettings) -> Simulation {
         let runs: Vec<Run> = (0..count).map(|seed2| {
             // TODO this seed stuff is kinda awful
             let new_seed = (seed as usize * count) as u64 + (seed2 as u64);
             // TODO figure out a way to avoid cloning tax_settings here
-            Run::execute::<T, U>(new_seed, all_rates, sublength, &job_settings, career_periods, tax_settings.clone())
+            Run::execute::<T, U>(new_seed, all_rates, sublength, &job_settings, &person_settings, career_periods, tax_settings.clone())
         }).collect();
 
         Simulation { runs }
