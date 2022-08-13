@@ -13,13 +13,13 @@ macro_rules! simplifying_assumption {
 pub struct Ratio<T>
 {
     pub num: T,
-    pub denum: T
+    pub denom: T
 }
 
 impl<T> Ratio<T>
 where T: Display {
     pub fn as_ratio(&self) -> String {
-        format!("{}/{}", self.num, self.denum)
+        format!("{}/{}", self.num, self.denom)
     }
 }
 
@@ -27,7 +27,7 @@ impl<T> Ratio<T>
 where T: Into<f64> + Copy
 {
     pub fn as_percent(&self) -> String {
-        format!("{:.1}%", self.num.into() / self.denum.into() * 100.0)
+        format!("{:.1}%", self.num.into() / self.denom.into() * 100.0)
     }
 }
 
@@ -57,11 +57,11 @@ pub mod tests {
 
     #[test]
     pub fn as_ratio() {
-        assert_eq!(Ratio{ num: 12, denum: 24}.as_ratio(), "12/24");
+        assert_eq!(Ratio{ num: 12, denom: 24}.as_ratio(), "12/24");
     }
 
     #[test]
     pub fn as_percent() {
-        assert_eq!(Ratio{ num: 12.0, denum: 24.0}.as_percent(), "50.0%");
+        assert_eq!(Ratio{ num: 12.0, denom: 24.0}.as_percent(), "50.0%");
     }
 }

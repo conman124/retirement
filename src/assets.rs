@@ -2,6 +2,7 @@ use std::rc::Rc;
 
 use crate::{rates::Rate, montecarlo::{Period, Lifespan}};
 
+#[derive(Debug)]
 pub struct AssetAllocation {
     stocks_glide: Vec<f64>,
 }
@@ -49,6 +50,7 @@ pub struct AccountSettings {
     allocation: Rc<AssetAllocation>
 }
 
+#[derive(Debug)]
 pub struct Account {
     starting_balance: f64,
     balance: Vec<f64>,

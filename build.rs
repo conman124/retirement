@@ -15,7 +15,7 @@ struct Rate {
 
 impl Display for Rate {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Rate {{ stocks: {}f64, bonds: {}f64, inflation: {}f64 }}", self.stocks, self.bonds, self.inflation)
+        write!(f, "Rate::new( {}f64, {}f64, {}f64 )", self.stocks, self.bonds, self.inflation)
     }
 }
 
@@ -60,5 +60,8 @@ fn read_csv<T: DeserializeOwned + Display>(storage_location: StorageLocation, fi
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     read_csv::<Rate>(StorageLocation::Static, "csv/rates.csv", "rates.rs", "RATES_BUILTIN")?;
     read_csv::<f64>(StorageLocation::ThreadLocal, "csv/death_male.csv", "death_male.rs", "ANNUAL_DEATH_MALE_BUILTIN")?;
-    read_csv::<f64>(StorageLocation::ThreadLocal, "csv/death_female.csv", "death_female.rs", "ANNUAL_DEATH_FEMALE_BUILTIN")
+    read_csv::<f64>(StorageLocation::ThreadLocal, "csv/death_female.csv", "death_female.rs", "ANNUAL_DEATH_FEMALE_BUILTIN")?;
+
+    read_csv::<Rate>(StorageLocation::Static, "csv/test_rates.csv", "test_rates.rs", "TEST_RATES_BUILTIN")?;
+    read_csv::<f64>(StorageLocation::ThreadLocal, "csv/test_death.csv", "test_death.rs", "TEST_DEATH_BUILTIN")
 }

@@ -20,7 +20,7 @@ pub struct Person {
 }
 
 impl PersonSettings {
-    fn new(age_years: usize, age_months: usize, annual_death_rates: Rc<[f64]>) -> PersonSettings {
+    pub fn new(age_years: usize, age_months: usize, annual_death_rates: Rc<[f64]>) -> PersonSettings {
         PersonSettings { age_years, age_months, annual_death_rates }
     }
 

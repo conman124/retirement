@@ -10,7 +10,7 @@ pub struct Rate {
 }
 
 impl Rate {
-    pub fn new(stocks: f64, bonds: f64, inflation: f64) -> Rate { Rate {stocks, bonds, inflation} }
+    pub const fn new(stocks: f64, bonds: f64, inflation: f64) -> Rate { Rate {stocks, bonds, inflation} }
     pub fn stocks(&self) -> f64 { self.stocks }
     pub fn bonds(&self) -> f64 { self.bonds }
     pub fn inflation(&self) -> f64 { self.inflation }
