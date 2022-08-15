@@ -1,9 +1,10 @@
+use std::cell::Ref;
 use std::rc::Rc;
 
 use rand::prelude::*;
 use crate::income::{JobSettings, IncomeProvider};
 use crate::person::PersonSettings;
-use crate::rates::{generate_rates,Rate};
+use crate::rates::{Rate, RatesSource, RatesSourceHolder};
 use crate::assets::{Account};
 use crate::taxes::{TaxSettings, TaxCollector};
 use crate::util::Ratio;
@@ -101,13 +102,13 @@ pub struct Run {
 }
 
 impl Run {
-    pub fn execute<T: SeedableRng + Rng + Clone, U: TaxCollector>(seed: u64, all_rates: &[Rate], sublength: usize, job_settings: &JobSettings, person_settings: &PersonSettings, career_periods: usize, tax_settings: TaxSettings) -> Run {
+    pub fn execute<T: SeedableRng + Rng + Clone, U: TaxCollector>(seed: u64, rates_source: Ref<RatesSource>, sublength: usize, job_settings: &JobSettings, person_settings: &PersonSettings, career_periods: usize, tax_settings: TaxSettings) -> Run {
         let mut rng = T::seed_from_u64(seed);
 
         let person = person_settings.create_person(&mut rng);
         let lifespan = person.lifespan();
         let careerspan = Lifespan::new(career_periods);
-        let rates = generate_rates(T::seed_from_u64(rng.gen()), all_rates, sublength, lifespan.periods());
+        let rates = Rc::new(rates_source.generate_rates(T::seed_from_u64(rng.gen()), sublength, lifespan.periods()));
         let jobs = job_settings.create_job(lifespan, careerspan, Rc::clone(&rates));
         let tax = U::new(tax_settings, Rc::clone(&rates), lifespan);
 
@@ -167,12 +168,12 @@ pub struct Simulation {
 }
 
 impl Simulation {
-    pub fn new<T: SeedableRng + Rng + Clone, U: TaxCollector>(seed: u64, count: usize, all_rates: &[Rate], sublength: usize, job_settings: JobSettings, person_settings: PersonSettings, career_periods: usize, tax_settings: TaxSettings) -> Simulation {
+    pub fn new<T: SeedableRng + Rng + Clone, U: TaxCollector>(seed: u64, count: usize, rates_source: RatesSourceHolder, sublength: usize, job_settings: JobSettings, person_settings: PersonSettings, career_periods: usize, tax_settings: TaxSettings) -> Simulation {
         let runs: Vec<Run> = (0..count).map(|seed2| {
             // TODO this seed stuff is kinda awful
             let new_seed = (seed as usize * count) as u64 + (seed2 as u64);
             // TODO figure out a way to avoid cloning tax_settings here
-            Run::execute::<T, U>(new_seed, all_rates, sublength, &job_settings, &person_settings, career_periods, tax_settings.clone())
+            Run::execute::<T, U>(new_seed, rates_source.get_rates_source(), sublength, &job_settings, &person_settings, career_periods, tax_settings.clone())
         }).collect();
 
         Simulation { runs }
@@ -190,6 +191,7 @@ impl Simulation {
 mod tests {
     use crate::assets::{AssetAllocation,AccountSettings};
     use crate::income::{Fica,RaiseSettings,AccountContributionSettings,AccountContributionSource,AccountContributionTaxability};
+    use crate::rates::get_rates_source_from_custom;
     use crate::taxes::{MockTaxCollector,TaxResult,Money, TaxBracket, Tax};
     use crate::util::get_thread_local_rc;
     use super::*;
@@ -250,7 +252,7 @@ mod tests {
         let person_settings = PersonSettings::new(27, 0, death_rates);
         let brackets = vec![(0.0, 0.1), (10275.0, 0.12), (41775.0, 0.22), (89075.0, 0.24), (170050.0, 0.32), (215950.0, 0.35), (539900.0, 0.37)].iter().map(|b| { TaxBracket { floor: b.0, rate: b.1 } }).collect();
         let tax_settings = TaxSettings { brackets: brackets, adjust_bracket_floors_for_inflation: true, deduction: 12950.0, adjust_deduction_for_inflation: true };
-        let simulation = Simulation::new::<rand_pcg::Pcg64Mcg, Tax>(1337, 100, &TEST_RATES_BUILTIN, 12, job_settings, person_settings, (65 - 27) * 12, tax_settings);
+        let simulation = Simulation::new::<rand_pcg::Pcg64Mcg, Tax>(1337, 100, get_rates_source_from_custom(Vec::from(TEST_RATES_BUILTIN)), 12, job_settings, person_settings, (65 - 27) * 12, tax_settings);
 
         assert_eq!(simulation.success_rate().num, 48);
         assert_eq!(simulation.success_rate().denom, 100);

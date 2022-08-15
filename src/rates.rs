@@ -1,6 +1,7 @@
+use wasm_bindgen::prelude::*;
 use rand::prelude::*;
 use serde::Deserialize;
-use std::{cmp::min, rc::Rc};
+use std::{cmp::min, cell::{RefCell, Ref}};
 
 #[derive(Copy, Clone, Debug, PartialEq, Deserialize)]
 pub struct Rate {
@@ -18,19 +19,7 @@ impl Rate {
 
 include!(concat!(env!("OUT_DIR"), "/rates.rs"));
 
-pub fn generate_rates_with_builtin(rng: impl Rng, sublength: usize, length: usize) -> Rc<Vec<Rate>> {
-
-    let rates = &RATES_BUILTIN;
-
-    return generate_rates(rng, rates.as_ref(), sublength, length);
-}
-
-pub fn generate_rates(rng: impl Rng, rates_in: &[Rate], sublength: usize, length: usize) -> Rc<Vec<Rate>> {
-    let dist = rand::distributions::Uniform::new(0, rates_in.len() + sublength - 1);
-    generate_rates_with_distribution(rng, rates_in, sublength, length, dist)
-}
-
-fn generate_rates_with_distribution(mut rng: impl Rng, rates_in: &[Rate], sublength: usize, length: usize, dist: impl Distribution<usize>) -> Rc<Vec<Rate>> {
+fn generate_rates_with_distribution(mut rng: impl Rng, rates_in: &[Rate], sublength: usize, length: usize, dist: impl Distribution<usize>) -> Vec<Rate> {
     assert!(sublength <= rates_in.len());
     assert!(sublength != 0);
     assert!(rates_in.len() != 0);
@@ -55,11 +44,86 @@ fn generate_rates_with_distribution(mut rng: impl Rng, rates_in: &[Rate], sublen
         rates.extend_from_slice(slice);
 
         if rates.len() == length {
-            return Rc::new(rates);
+            return rates;
         }
 
         assert!(rates.len() < length);
     }
+}
+
+fn generate_rates(rng: impl Rng, rates_in: &[Rate], sublength: usize, length: usize) -> Vec<Rate> {
+    let dist = rand::distributions::Uniform::new(0, rates_in.len() + sublength - 1);
+    generate_rates_with_distribution(rng, rates_in, sublength, length, dist)
+}
+
+fn generate_rates_with_builtin(rng: impl Rng, sublength: usize, length: usize) -> Vec<Rate> {
+
+    let rates = &RATES_BUILTIN;
+
+    return generate_rates(rng, rates.as_ref(), sublength, length);
+}
+
+fn generate_rates_with_csv(rng: impl Rng, rates_in: &str, sublength: usize, length: usize) -> Vec<Rate> {
+    let mut rdr = csv::Reader::from_reader(rates_in.as_bytes());
+
+    let rates = rdr
+        .deserialize()
+        .map(|rate: Result<Rate, _>| {
+            rate.unwrap()
+        })
+        .collect::<Vec<Rate>>();
+
+    generate_rates(rng, &rates, sublength, length)
+}
+
+pub enum RatesSource {
+    Builtin,
+    Csv(String),
+    #[cfg(test)]
+    Custom(Vec<Rate>)
+}
+
+impl RatesSource {
+    pub fn generate_rates(&self, rng: impl Rng, sublength: usize, length: usize) -> Vec<Rate> {
+        match self {
+            RatesSource::Builtin => {
+                generate_rates_with_builtin(rng, sublength, length)
+            },
+            RatesSource::Csv(str) => {
+                generate_rates_with_csv(rng, str, sublength, length)
+            }
+            #[cfg(test)]
+            RatesSource::Custom(rates) => {
+                generate_rates(rng, rates, sublength, length)
+            }
+        }
+    }
+}
+
+#[wasm_bindgen]
+pub struct RatesSourceHolder {
+    rates_source: RefCell<RatesSource>
+}
+
+impl RatesSourceHolder {
+    pub fn get_rates_source(&self) -> Ref<RatesSource> {
+        self.rates_source.borrow()
+    }
+}
+
+#[wasm_bindgen]
+pub fn get_rates_source_from_builtin() -> RatesSourceHolder {
+    RatesSourceHolder { rates_source: RefCell::from(RatesSource::Builtin) }
+}
+
+#[wasm_bindgen]
+pub fn get_rates_source_from_csv(csv: String) -> RatesSourceHolder {
+    RatesSourceHolder { rates_source: RefCell::from(RatesSource::Csv(csv)) }
+}
+
+#[cfg(test)]
+pub fn get_rates_source_from_custom(rates: Vec<Rate>) -> RatesSourceHolder {
+    RatesSourceHolder { rates_source: RefCell::from(RatesSource::Custom(rates)) }
 }
 
 #[cfg(test)]
