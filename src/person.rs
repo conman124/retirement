@@ -1,14 +1,17 @@
 use rand::prelude::*;
+use wasm_bindgen::prelude::*;
 use crate::montecarlo::Lifespan;
 use crate::util::get_thread_local_rc;
 use std::rc::Rc;
 
 
+#[wasm_bindgen]
 pub enum Gender {
     Male,
     Female
 }
 
+#[wasm_bindgen]
 pub struct PersonSettings {
     age_years: usize,
     age_months: usize,
@@ -24,6 +27,19 @@ impl PersonSettings {
         PersonSettings { age_years, age_months, annual_death_rates }
     }
 
+    pub fn create_person<R: Rng>(&self, rng: &mut R) -> Person {
+
+        let lifespan = life_expectancy::calculate_periods(rng, &self.annual_death_rates[self.age_years..], self.age_months);
+
+        Person { 
+            lifespan: Lifespan::new(lifespan)
+        }
+    }
+}
+
+#[wasm_bindgen]
+impl PersonSettings {
+    #[wasm_bindgen]
     pub fn new_with_default_death_rates(age_years: usize, age_months: usize, gender: Gender) -> PersonSettings {
         let rates = match gender {
             Gender::Male => &life_expectancy::ANNUAL_DEATH_MALE_BUILTIN,
@@ -35,13 +51,9 @@ impl PersonSettings {
         PersonSettings::new(age_years, age_months, rates)
     }
 
-    pub fn create_person<R: Rng>(&self, rng: &mut R) -> Person {
-
-        let lifespan = life_expectancy::calculate_periods(rng, &self.annual_death_rates[self.age_years..], self.age_months);
-
-        Person { 
-            lifespan: Lifespan::new(lifespan)
-        }
+    #[wasm_bindgen]
+    pub fn new_with_custom_death_rates(age_years: usize, age_months: usize, annual_death_rates: &[f64]) -> PersonSettings {
+        PersonSettings::new(age_years, age_months, Rc::from(annual_death_rates))
     }
 }
 

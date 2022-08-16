@@ -78,8 +78,6 @@ fn generate_rates_with_csv(rng: impl Rng, rates_in: &str, sublength: usize, leng
 
 pub enum RatesSource {
     Builtin,
-    Csv(String),
-    #[cfg(test)]
     Custom(Vec<Rate>)
 }
 
@@ -88,11 +86,7 @@ impl RatesSource {
         match self {
             RatesSource::Builtin => {
                 generate_rates_with_builtin(rng, sublength, length)
-            },
-            RatesSource::Csv(str) => {
-                generate_rates_with_csv(rng, str, sublength, length)
             }
-            #[cfg(test)]
             RatesSource::Custom(rates) => {
                 generate_rates(rng, rates, sublength, length)
             }
@@ -117,8 +111,13 @@ pub fn get_rates_source_from_builtin() -> RatesSourceHolder {
 }
 
 #[wasm_bindgen]
-pub fn get_rates_source_from_csv(csv: String) -> RatesSourceHolder {
-    RatesSourceHolder { rates_source: RefCell::from(RatesSource::Csv(csv)) }
+pub fn get_rates_source_from_custom_split(stocks: Vec<f64>, bonds: Vec<f64>, inflation: Vec<f64>) -> RatesSourceHolder {
+    assert_eq!(stocks.len(), bonds.len());
+    assert_eq!(stocks.len(), inflation.len());
+
+    let rates = stocks.into_iter().zip(bonds).zip(inflation).map(|((stocks, bonds), inflation)| { Rate::new(stocks, bonds, inflation) } ).collect();
+
+    RatesSourceHolder { rates_source: RefCell::from(RatesSource::Custom(rates)) }
 }
 
 #[cfg(test)]
