@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use wasm_bindgen::prelude::*;
 
 use crate::montecarlo::Lifespan;
 use crate::montecarlo::Period;
@@ -28,6 +29,7 @@ impl TaxResult {
 }
 
 #[derive(Clone,Copy)]
+#[wasm_bindgen]
 pub struct TaxBracket {
     pub floor: f64,
     pub rate: f64,
@@ -37,11 +39,30 @@ simplifying_assumption!("There are no tax credits.  This will lower the pre-reti
     income, and depending on your settings might lower the retirement withdrawal amount.");
 // TODO Add support for long term capital gains rates
 #[derive(Clone)]
+#[wasm_bindgen]
 pub struct TaxSettings {
-    pub brackets: Vec<TaxBracket>,
-    pub adjust_bracket_floors_for_inflation: bool,
-    pub deduction: f64,
-    pub adjust_deduction_for_inflation: bool,
+    brackets: Vec<TaxBracket>,
+    adjust_bracket_floors_for_inflation: bool,
+    deduction: f64,
+    adjust_deduction_for_inflation: bool,
+}
+
+impl TaxSettings {
+    pub fn new(brackets: Vec<TaxBracket>, adjust_bracket_floors_for_inflation: bool, deduction: f64, adjust_deduction_for_inflation: bool ) -> TaxSettings {
+        TaxSettings { brackets, adjust_bracket_floors_for_inflation, deduction, adjust_deduction_for_inflation }
+    }
+}
+
+#[wasm_bindgen]
+impl TaxSettings {
+    #[wasm_bindgen]
+    pub fn new_from_js(bracket_floors: Vec<f64>, bracket_rates: Vec<f64>, adjust_bracket_floors_for_inflation: bool, deduction: f64, adjust_deduction_for_inflation: bool) -> TaxSettings {
+        let brackets = bracket_floors.into_iter().zip(bracket_rates)
+            .map(|(floor, rate)| { TaxBracket{floor, rate} })
+            .collect();
+
+        Self::new(brackets, adjust_bracket_floors_for_inflation, deduction, adjust_deduction_for_inflation)
+    }
 }
 
 #[cfg_attr(test, automock)]
@@ -50,6 +71,7 @@ pub trait TaxCollector {
     fn collect_income_taxes(&mut self, money: Money, period: Period) -> TaxResult;
 }
 
+#[wasm_bindgen]
 pub struct Tax {
     settings: TaxSettings,
     rates: Rc<Vec<Rate>>,
@@ -96,17 +118,16 @@ impl Tax {
 
         taxes
     }
-}
 
-
-impl TaxCollector for Tax {
-    fn new(settings: TaxSettings, rates: Rc<Vec<Rate>>, lifespan: Lifespan) -> Tax {
+    pub fn new(settings: TaxSettings, rates: Rc<Vec<Rate>>, lifespan: Lifespan) -> Tax {
         assert_eq!(rates.len(), lifespan.periods());
 
         Tax{ settings, rates, gross_income: vec![0.0; lifespan.periods()] }
     }
+}
 
-    fn collect_income_taxes(&mut self, money: Money, period: Period) -> TaxResult {
+impl Tax {
+    pub fn collect_income_taxes(&mut self, money: Money, period: Period) -> TaxResult {
         match money {
             Money::NonTaxable(amt) => {
                 TaxResult{taxes: 0.0, leftover: amt}
@@ -124,6 +145,16 @@ impl TaxCollector for Tax {
                 TaxResult{taxes, leftover}
             }
         }
+    }
+}
+
+impl TaxCollector for Tax {
+    fn new(settings: TaxSettings, rates: Rc<Vec<Rate>>, lifespan: Lifespan) -> Tax {
+        Self::new(settings, rates, lifespan)
+    }
+
+    fn collect_income_taxes(&mut self, money: Money, period: Period) -> TaxResult {
+        self.collect_income_taxes(money, period)
     }
 }
 

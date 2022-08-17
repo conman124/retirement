@@ -251,7 +251,7 @@ mod tests {
         let death_rates = get_thread_local_rc(&TEST_DEATH_BUILTIN);
         let person_settings = PersonSettings::new(27, 0, death_rates);
         let brackets = vec![(0.0, 0.1), (10275.0, 0.12), (41775.0, 0.22), (89075.0, 0.24), (170050.0, 0.32), (215950.0, 0.35), (539900.0, 0.37)].iter().map(|b| { TaxBracket { floor: b.0, rate: b.1 } }).collect();
-        let tax_settings = TaxSettings { brackets: brackets, adjust_bracket_floors_for_inflation: true, deduction: 12950.0, adjust_deduction_for_inflation: true };
+        let tax_settings = TaxSettings::new(brackets, true, 12950.0, true );
         let simulation = Simulation::new::<rand_pcg::Pcg64Mcg, Tax>(1337, 100, get_rates_source_from_custom(Vec::from(TEST_RATES_BUILTIN)), 12, job_settings, person_settings, (65 - 27) * 12, tax_settings);
 
         assert_eq!(simulation.success_rate().num, 48);
