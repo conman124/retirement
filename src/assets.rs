@@ -1,13 +1,18 @@
 use std::rc::Rc;
 
+use wasm_bindgen::prelude::*;
+
 use crate::{rates::Rate, montecarlo::{Period, Lifespan}};
 
 #[derive(Debug)]
+#[wasm_bindgen]
 pub struct AssetAllocation {
     stocks_glide: Vec<f64>,
 }
 
+#[wasm_bindgen]
 impl AssetAllocation {
+    #[wasm_bindgen]
     pub fn new(stocks_glide: Vec<f64>) -> AssetAllocation {
         assert!(stocks_glide.len() >= 1);
         assert!(stocks_glide.iter().min_by(|x,y| x.partial_cmp(y).unwrap()).unwrap() >= &0.0);
@@ -16,6 +21,7 @@ impl AssetAllocation {
         AssetAllocation{ stocks_glide }
     }
 
+    #[wasm_bindgen]
     pub fn new_linear_glide(periods_before: usize, start_stocks: f64, periods_glide: usize, end_stocks: f64) -> AssetAllocation {
         assert!(periods_before >= 1);
         assert!(periods_glide >= 1);
@@ -32,6 +38,7 @@ impl AssetAllocation {
         AssetAllocation { stocks_glide }
     }
 
+    #[wasm_bindgen]
     pub fn stocks(&self, period: Period) -> f64 {
         if period.get() < self.stocks_glide.len() {
             self.stocks_glide[period.get()]
@@ -40,11 +47,13 @@ impl AssetAllocation {
         }
     }
 
+    #[wasm_bindgen]
     pub fn bonds(&self, period: Period) -> f64 {
         1.0 - self.stocks(period)
     }
 }
 
+#[wasm_bindgen]
 pub struct AccountSettings {
     starting_balance: f64,
     allocation: Rc<AssetAllocation>
@@ -56,6 +65,14 @@ pub struct Account {
     balance: Vec<f64>,
     allocation: Rc<AssetAllocation>,
     rates: Rc<Vec<Rate>>
+}
+
+#[wasm_bindgen]
+impl AccountSettings {
+    #[wasm_bindgen]
+    pub fn new_from_js(starting_balance: f64, allocation: AssetAllocation) -> AccountSettings {
+        Self::new(starting_balance, Rc::new(allocation))
+    }
 }
 
 impl AccountSettings {

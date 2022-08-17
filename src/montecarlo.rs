@@ -2,6 +2,8 @@ use std::cell::Ref;
 use std::rc::Rc;
 
 use rand::prelude::*;
+use wasm_bindgen::prelude::*;
+
 use crate::income::{JobSettings, IncomeProvider};
 use crate::person::PersonSettings;
 use crate::rates::{Rate, RatesSource, RatesSourceHolder};
@@ -22,6 +24,7 @@ pub struct LifespanIterator {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[wasm_bindgen]
 pub struct Period {
     period: usize
 }
