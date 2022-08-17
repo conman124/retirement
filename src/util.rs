@@ -1,6 +1,7 @@
-use std::fmt::Display;
 use std::rc::Rc;
 use std::thread::LocalKey;
+
+use wasm_bindgen::prelude::*;
 
 #[macro_export]
 macro_rules! simplifying_assumption {
@@ -10,24 +11,20 @@ macro_rules! simplifying_assumption {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct Ratio<T>
+#[wasm_bindgen]
+pub struct Ratio
 {
-    pub num: T,
-    pub denom: T
+    pub num: usize,
+    pub denom: usize
 }
 
-impl<T> Ratio<T>
-where T: Display {
+impl Ratio {
     pub fn as_ratio(&self) -> String {
         format!("{}/{}", self.num, self.denom)
     }
-}
 
-impl<T> Ratio<T> 
-where T: Into<f64> + Copy
-{
     pub fn as_percent(&self) -> String {
-        format!("{:.1}%", self.num.into() / self.denom.into() * 100.0)
+        format!("{:.1}%", self.num as f64 / self.denom as f64 * 100.0)
     }
 }
 
@@ -62,6 +59,6 @@ pub mod tests {
 
     #[test]
     pub fn as_percent() {
-        assert_eq!(Ratio{ num: 12.0, denom: 24.0}.as_percent(), "50.0%");
+        assert_eq!(Ratio{ num: 12, denom: 24}.as_percent(), "50.0%");
     }
 }

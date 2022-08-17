@@ -8,7 +8,7 @@ use crate::income::{JobSettings, IncomeProvider};
 use crate::person::PersonSettings;
 use crate::rates::{Rate, RatesSource, RatesSourceHolder};
 use crate::assets::{Account};
-use crate::taxes::{TaxSettings, TaxCollector};
+use crate::taxes::{TaxSettings, TaxCollector, Tax};
 use crate::util::Ratio;
 use crate::withdrawal::{WithdrawalStrategyOrig,WithdrawalStrategy};
 
@@ -166,8 +166,25 @@ impl Run {
     }
 }
 
+#[wasm_bindgen]
 pub struct Simulation {
     runs: Vec<Run>
+}
+
+#[wasm_bindgen]
+impl Simulation {
+    #[wasm_bindgen]
+    pub fn new_default(seed: u64, count: usize, rates_source: RatesSourceHolder, sublength: usize, job_settings: JobSettings, person_settings: PersonSettings, career_periods: usize, tax_settings: TaxSettings) -> Simulation {
+        Self::new::<rand_pcg::Pcg64Mcg, Tax>(seed, count, rates_source, sublength, job_settings, person_settings, career_periods, tax_settings)
+    }
+
+    #[wasm_bindgen]
+    pub fn success_rate(&self) -> Ratio {
+        Ratio {
+            num: self.runs.iter().filter(|a| a.assets_adequate_periods >= a.lifespan.periods()).count(),
+            denom: self.runs.len()
+        }
+    }
 }
 
 impl Simulation {
@@ -182,12 +199,6 @@ impl Simulation {
         Simulation { runs }
     }
 
-    pub fn success_rate(&self) -> Ratio<usize> {
-        Ratio {
-            num: self.runs.iter().filter(|a| a.assets_adequate_periods >= a.lifespan.periods()).count(),
-            denom: self.runs.len()
-        }
-    }
 }
 
 #[cfg(test)]
@@ -195,7 +206,7 @@ mod tests {
     use crate::assets::{AssetAllocation,AccountSettings};
     use crate::income::{Fica,RaiseSettings,AccountContributionSettings,AccountContributionSource,AccountContributionTaxability};
     use crate::rates::get_rates_source_from_custom;
-    use crate::taxes::{MockTaxCollector,TaxResult,Money, TaxBracket, Tax};
+    use crate::taxes::{MockTaxCollector,TaxResult,Money, TaxBracket};
     use crate::util::get_thread_local_rc;
     use super::*;
 
