@@ -1,5 +1,7 @@
 use std::rc::Rc;
 
+use wasm_bindgen::prelude::*;
+
 use crate::assets::{AccountSettings, Account};
 use crate::montecarlo::{Period, Lifespan};
 use crate::rates::Rate;
@@ -22,24 +24,46 @@ pub enum Fica {
     Exempt
 }
 
+#[wasm_bindgen]
+pub struct FicaJS {
+    fica: Fica
+}
+
+#[wasm_bindgen]
+impl FicaJS {
+    #[wasm_bindgen]
+    pub fn new_participant(ss_rate: f64) -> FicaJS {
+        FicaJS{ fica: Fica::Participant { ss_rate }}
+    }
+
+    #[wasm_bindgen]
+    pub fn new_exempt() -> FicaJS {
+        FicaJS{ fica: Fica::Exempt }
+    }
+}
+
 #[derive(Copy,Clone)]
+#[wasm_bindgen]
 pub struct RaiseSettings {
     pub amount: f64,
     pub adjust_for_inflation: bool
 }
 
 #[derive(Copy,Clone,PartialEq,Eq,Debug)]
+#[wasm_bindgen]
 pub enum AccountContributionSource {
     Employee,
     Employer
 }
 
 #[derive(Copy,Clone,PartialEq,Eq)]
+#[wasm_bindgen]
 pub enum AccountContributionTaxability {
     PreTax,
     PostTax
 }
 
+#[wasm_bindgen]
 pub struct AccountContributionSettings {
     account: AccountSettings,
     contribution_pct: f64,
@@ -54,6 +78,7 @@ pub struct AccountContribution {
     tax: AccountContributionTaxability
 }
 
+#[wasm_bindgen]
 pub struct JobSettings {
     // name, 401k, pension
     starting_gross_income: f64,
@@ -72,11 +97,14 @@ pub struct Job {
     account_contributions: Vec<AccountContribution>
 }
 
+#[wasm_bindgen]
 impl AccountContributionSettings {
     pub fn new(account: AccountSettings, contribution_pct: f64, contribution_source: AccountContributionSource, tax: AccountContributionTaxability) -> AccountContributionSettings {
         AccountContributionSettings { account, contribution_pct, contribution_source, tax }
     }
+}
 
+impl AccountContributionSettings {
     pub fn create_account_contribution(&self, lifespan: Lifespan, rates: Rc<Vec<Rate>>) -> AccountContribution {
         AccountContribution {
             account: self.account.create_account(lifespan, rates),
@@ -84,6 +112,27 @@ impl AccountContributionSettings {
             contribution_source: self.contribution_source,
             tax: self.tax
         }
+    }
+}
+
+#[wasm_bindgen]
+pub struct AccountContributionSettingsVec {
+    vec: Vec<AccountContributionSettings>
+}
+
+#[wasm_bindgen]
+impl AccountContributionSettingsVec {
+    #[wasm_bindgen]
+    pub fn add(&mut self, accoun_contribution_settings: AccountContributionSettings) {
+        self.vec.push(accoun_contribution_settings);
+    }
+}
+
+#[wasm_bindgen]
+impl JobSettings {
+    #[wasm_bindgen]
+    pub fn new_from_js(starting_gross_income: f64, fica: FicaJS, raise: RaiseSettings, account_contribution_settings: AccountContributionSettingsVec) -> JobSettings {
+        Self::new(starting_gross_income, fica.fica, raise, account_contribution_settings.vec)
     }
 }
 
