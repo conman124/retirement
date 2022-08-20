@@ -106,23 +106,28 @@ impl RatesSourceHolder {
 }
 
 #[wasm_bindgen]
-pub fn get_rates_source_from_builtin() -> RatesSourceHolder {
-    RatesSourceHolder { rates_source: RefCell::from(RatesSource::Builtin) }
+impl RatesSourceHolder { 
+    #[wasm_bindgen]
+    pub fn new_from_builtin() -> RatesSourceHolder {
+        RatesSourceHolder { rates_source: RefCell::from(RatesSource::Builtin) }
+    }
+
+    #[wasm_bindgen]
+    pub fn new_from_custom_split(stocks: Vec<f64>, bonds: Vec<f64>, inflation: Vec<f64>) -> RatesSourceHolder {
+        assert_eq!(stocks.len(), bonds.len());
+        assert_eq!(stocks.len(), inflation.len());
+
+        let rates = stocks.into_iter().zip(bonds).zip(inflation).map(|((stocks, bonds), inflation)| { Rate::new(stocks, bonds, inflation) } ).collect();
+
+        RatesSourceHolder { rates_source: RefCell::from(RatesSource::Custom(rates)) }
+    }
 }
 
-#[wasm_bindgen]
-pub fn get_rates_source_from_custom_split(stocks: Vec<f64>, bonds: Vec<f64>, inflation: Vec<f64>) -> RatesSourceHolder {
-    assert_eq!(stocks.len(), bonds.len());
-    assert_eq!(stocks.len(), inflation.len());
-
-    let rates = stocks.into_iter().zip(bonds).zip(inflation).map(|((stocks, bonds), inflation)| { Rate::new(stocks, bonds, inflation) } ).collect();
-
-    RatesSourceHolder { rates_source: RefCell::from(RatesSource::Custom(rates)) }
-}
-
-#[cfg(test)]
-pub fn get_rates_source_from_custom(rates: Vec<Rate>) -> RatesSourceHolder {
-    RatesSourceHolder { rates_source: RefCell::from(RatesSource::Custom(rates)) }
+impl RatesSourceHolder {
+    #[cfg(test)]
+    pub fn new_from_custom(rates: Vec<Rate>) -> RatesSourceHolder {
+        RatesSourceHolder { rates_source: RefCell::from(RatesSource::Custom(rates)) }
+    }
 }
 
 #[cfg(test)]

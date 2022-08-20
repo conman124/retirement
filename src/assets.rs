@@ -12,7 +12,7 @@ pub struct AssetAllocation {
 
 #[wasm_bindgen]
 impl AssetAllocation {
-    #[wasm_bindgen]
+    #[wasm_bindgen(constructor)]
     pub fn new(stocks_glide: Vec<f64>) -> AssetAllocation {
         assert!(stocks_glide.len() >= 1);
         assert!(stocks_glide.iter().min_by(|x,y| x.partial_cmp(y).unwrap()).unwrap() >= &0.0);
@@ -69,7 +69,7 @@ pub struct Account {
 
 #[wasm_bindgen]
 impl AccountSettings {
-    #[wasm_bindgen]
+    #[wasm_bindgen(constructor)]
     pub fn new_from_js(starting_balance: f64, allocation: AssetAllocation) -> AccountSettings {
         Self::new(starting_balance, Rc::new(allocation))
     }

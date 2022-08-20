@@ -173,7 +173,7 @@ pub struct Simulation {
 
 #[wasm_bindgen]
 impl Simulation {
-    #[wasm_bindgen]
+    #[wasm_bindgen(constructor)]
     pub fn new_default(seed: u64, count: usize, rates_source: RatesSourceHolder, sublength: usize, job_settings: JobSettings, person_settings: PersonSettings, career_periods: usize, tax_settings: TaxSettings) -> Simulation {
         Self::new::<rand_pcg::Pcg64Mcg, Tax>(seed, count, rates_source, sublength, job_settings, person_settings, career_periods, tax_settings)
     }
@@ -205,7 +205,7 @@ impl Simulation {
 mod tests {
     use crate::assets::{AssetAllocation,AccountSettings};
     use crate::income::{Fica,RaiseSettings,AccountContributionSettings,AccountContributionSource,AccountContributionTaxability};
-    use crate::rates::get_rates_source_from_custom;
+    use crate::rates::RatesSourceHolder;
     use crate::taxes::{MockTaxCollector,TaxResult,Money, TaxBracket};
     use crate::util::get_thread_local_rc;
     use super::*;
@@ -266,7 +266,7 @@ mod tests {
         let person_settings = PersonSettings::new(27, 0, death_rates);
         let brackets = vec![(0.0, 0.1), (10275.0, 0.12), (41775.0, 0.22), (89075.0, 0.24), (170050.0, 0.32), (215950.0, 0.35), (539900.0, 0.37)].iter().map(|b| { TaxBracket { floor: b.0, rate: b.1 } }).collect();
         let tax_settings = TaxSettings::new(brackets, true, 12950.0, true );
-        let simulation = Simulation::new::<rand_pcg::Pcg64Mcg, Tax>(1337, 100, get_rates_source_from_custom(Vec::from(TEST_RATES_BUILTIN)), 12, job_settings, person_settings, (65 - 27) * 12, tax_settings);
+        let simulation = Simulation::new::<rand_pcg::Pcg64Mcg, Tax>(1337, 100, RatesSourceHolder::new_from_custom(Vec::from(TEST_RATES_BUILTIN)), 12, job_settings, person_settings, (65 - 27) * 12, tax_settings);
 
         assert_eq!(simulation.success_rate().num, 48);
         assert_eq!(simulation.success_rate().denom, 100);

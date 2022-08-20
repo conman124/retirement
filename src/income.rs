@@ -32,12 +32,12 @@ pub struct FicaJS {
 #[wasm_bindgen]
 impl FicaJS {
     #[wasm_bindgen]
-    pub fn new_participant(ss_rate: f64) -> FicaJS {
+    pub fn participant(ss_rate: f64) -> FicaJS {
         FicaJS{ fica: Fica::Participant { ss_rate }}
     }
 
     #[wasm_bindgen]
-    pub fn new_exempt() -> FicaJS {
+    pub fn exempt() -> FicaJS {
         FicaJS{ fica: Fica::Exempt }
     }
 }
@@ -47,6 +47,14 @@ impl FicaJS {
 pub struct RaiseSettings {
     pub amount: f64,
     pub adjust_for_inflation: bool
+}
+
+#[wasm_bindgen]
+impl RaiseSettings {
+    #[wasm_bindgen(constructor)]
+    pub fn new(amount: f64, adjust_for_inflation: bool) -> RaiseSettings {
+        RaiseSettings { amount, adjust_for_inflation }
+    }
 }
 
 #[derive(Copy,Clone,PartialEq,Eq,Debug)]
@@ -99,6 +107,7 @@ pub struct Job {
 
 #[wasm_bindgen]
 impl AccountContributionSettings {
+    #[wasm_bindgen(constructor)]
     pub fn new(account: AccountSettings, contribution_pct: f64, contribution_source: AccountContributionSource, tax: AccountContributionTaxability) -> AccountContributionSettings {
         AccountContributionSettings { account, contribution_pct, contribution_source, tax }
     }
@@ -122,6 +131,11 @@ pub struct AccountContributionSettingsVec {
 
 #[wasm_bindgen]
 impl AccountContributionSettingsVec {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> AccountContributionSettingsVec {
+        AccountContributionSettingsVec { vec: vec![] }
+    }
+
     #[wasm_bindgen]
     pub fn add(&mut self, accoun_contribution_settings: AccountContributionSettings) {
         self.vec.push(accoun_contribution_settings);
@@ -130,7 +144,7 @@ impl AccountContributionSettingsVec {
 
 #[wasm_bindgen]
 impl JobSettings {
-    #[wasm_bindgen]
+    #[wasm_bindgen(constructor)]
     pub fn new_from_js(starting_gross_income: f64, fica: FicaJS, raise: RaiseSettings, account_contribution_settings: AccountContributionSettingsVec) -> JobSettings {
         Self::new(starting_gross_income, fica.fica, raise, account_contribution_settings.vec)
     }

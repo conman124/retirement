@@ -55,7 +55,7 @@ impl TaxSettings {
 
 #[wasm_bindgen]
 impl TaxSettings {
-    #[wasm_bindgen]
+    #[wasm_bindgen(constructor)]
     pub fn new_from_js(bracket_floors: Vec<f64>, bracket_rates: Vec<f64>, adjust_bracket_floors_for_inflation: bool, deduction: f64, adjust_deduction_for_inflation: bool) -> TaxSettings {
         let brackets = bracket_floors.into_iter().zip(bracket_rates)
             .map(|(floor, rate)| { TaxBracket{floor, rate} })
