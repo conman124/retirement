@@ -18,7 +18,7 @@ pub trait IncomeProvider {
 simplifying_assumption!("There is no cap on social security contributions/benefits. \
     This will particularly impact high earners and will cause the social security \
     deduction and benefit amount to be too high.");
-#[derive(Copy,Clone)]
+#[derive(Copy,Clone,Debug)]
 pub enum Fica {
     Participant{ss_rate: f64},
     Exempt
@@ -42,7 +42,7 @@ impl FicaJS {
     }
 }
 
-#[derive(Copy,Clone)]
+#[derive(Copy,Clone,Debug)]
 #[wasm_bindgen]
 pub struct RaiseSettings {
     pub amount: f64,
@@ -64,13 +64,14 @@ pub enum AccountContributionSource {
     Employer
 }
 
-#[derive(Copy,Clone,PartialEq,Eq)]
+#[derive(Copy,Clone,PartialEq,Eq,Debug)]
 #[wasm_bindgen]
 pub enum AccountContributionTaxability {
     PreTax,
     PostTax
 }
 
+#[derive(Debug)]
 #[wasm_bindgen]
 pub struct AccountContributionSettings {
     account: AccountSettings,
@@ -79,6 +80,7 @@ pub struct AccountContributionSettings {
     tax: AccountContributionTaxability
 }
 
+#[derive(Debug)]
 pub struct AccountContribution {
     account: Account,
     contribution_pct: f64,
@@ -86,6 +88,7 @@ pub struct AccountContribution {
     tax: AccountContributionTaxability
 }
 
+#[derive(Debug)]
 #[wasm_bindgen]
 pub struct JobSettings {
     // name, 401k, pension
@@ -95,6 +98,7 @@ pub struct JobSettings {
     account_contribution_settings: Vec<AccountContributionSettings>
 }
 
+#[derive(Debug)]
 pub struct Job {
     starting_gross_income: f64,
     gross_income: Vec<f64>,

@@ -24,13 +24,13 @@ enum StorageLocation {
     Static
 }
 
-fn read_csv<T: DeserializeOwned + Display>(storage_location: StorageLocation, file: &str, output_file: &str, variable: &str) -> Result<(), Box<dyn std::error::Error>> {
+fn read_csv<T: DeserializeOwned + Display>(storage_location: StorageLocation, file: &str, output_file: &str, variable: &str, has_headers: bool) -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rerun-if-changed={}", file);
 
     let out_dir = env::var_os("OUT_DIR").unwrap();
     let dest_path = Path::new(&out_dir).join(output_file);
 
-    let mut rdr = csv::Reader::from_reader(File::open(file)?);
+    let mut rdr = csv::ReaderBuilder::new().has_headers(has_headers).from_reader(File::open(file)?);
     let result = rdr
         .deserialize()
         .map(|rate: Result<T, _>| {
@@ -58,10 +58,10 @@ fn read_csv<T: DeserializeOwned + Display>(storage_location: StorageLocation, fi
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    read_csv::<Rate>(StorageLocation::Static, "csv/rates.csv", "rates.rs", "RATES_BUILTIN")?;
-    read_csv::<f64>(StorageLocation::ThreadLocal, "csv/death_male.csv", "death_male.rs", "ANNUAL_DEATH_MALE_BUILTIN")?;
-    read_csv::<f64>(StorageLocation::ThreadLocal, "csv/death_female.csv", "death_female.rs", "ANNUAL_DEATH_FEMALE_BUILTIN")?;
+    read_csv::<Rate>(StorageLocation::Static, "csv/rates.csv", "rates.rs", "RATES_BUILTIN", true)?;
+    read_csv::<f64>(StorageLocation::ThreadLocal, "csv/death_male.csv", "death_male.rs", "ANNUAL_DEATH_MALE_BUILTIN", false)?;
+    read_csv::<f64>(StorageLocation::ThreadLocal, "csv/death_female.csv", "death_female.rs", "ANNUAL_DEATH_FEMALE_BUILTIN", false)?;
 
-    read_csv::<Rate>(StorageLocation::Static, "csv/test_rates.csv", "test_rates.rs", "TEST_RATES_BUILTIN")?;
-    read_csv::<f64>(StorageLocation::ThreadLocal, "csv/test_death.csv", "test_death.rs", "TEST_DEATH_BUILTIN")
+    read_csv::<Rate>(StorageLocation::Static, "csv/test_rates.csv", "test_rates.rs", "TEST_RATES_BUILTIN", true)?;
+    read_csv::<f64>(StorageLocation::ThreadLocal, "csv/test_death.csv", "test_death.rs", "TEST_DEATH_BUILTIN", false)
 }

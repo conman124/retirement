@@ -28,7 +28,7 @@ impl TaxResult {
     pub fn leftover(&self) -> f64 { self.leftover } 
 }
 
-#[derive(Clone,Copy)]
+#[derive(Clone,Copy,Debug)]
 #[wasm_bindgen]
 pub struct TaxBracket {
     pub floor: f64,
@@ -38,7 +38,7 @@ pub struct TaxBracket {
 simplifying_assumption!("There are no tax credits.  This will lower the pre-retirement net \
     income, and depending on your settings might lower the retirement withdrawal amount.");
 // TODO Add support for long term capital gains rates
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 #[wasm_bindgen]
 pub struct TaxSettings {
     brackets: Vec<TaxBracket>,
@@ -71,6 +71,7 @@ pub trait TaxCollector {
     fn collect_income_taxes(&mut self, money: Money, period: Period) -> TaxResult;
 }
 
+#[derive(Debug)]
 #[wasm_bindgen]
 pub struct Tax {
     settings: TaxSettings,

@@ -11,6 +11,7 @@ pub enum Gender {
     Female
 }
 
+#[derive(Debug)]
 #[wasm_bindgen]
 pub struct PersonSettings {
     age_years: usize,
@@ -18,6 +19,7 @@ pub struct PersonSettings {
     annual_death_rates: Rc<[f64]>
 }
 
+#[derive(Debug)]
 pub struct Person {
     lifespan: Lifespan
 }

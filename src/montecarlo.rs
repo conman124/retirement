@@ -96,6 +96,7 @@ impl std::ops::Add<usize> for Period {
     }
 }
 
+#[derive(Debug)]
 pub struct Run {
     rates: Rc<Vec<Rate>>,
     assets_adequate_periods: usize,
@@ -105,7 +106,7 @@ pub struct Run {
 }
 
 impl Run {
-    pub fn execute<T: SeedableRng + Rng + Clone, U: TaxCollector>(seed: u64, rates_source: Ref<RatesSource>, sublength: usize, job_settings: &JobSettings, person_settings: &PersonSettings, career_periods: usize, tax_settings: TaxSettings) -> Run {
+    pub fn execute<T: SeedableRng + Rng + Clone + std::fmt::Debug, U: TaxCollector + std::fmt::Debug>(seed: u64, rates_source: Ref<RatesSource>, sublength: usize, job_settings: &JobSettings, person_settings: &PersonSettings, career_periods: usize, tax_settings: TaxSettings) -> Run {
         let mut rng = T::seed_from_u64(seed);
 
         let person = person_settings.create_person(&mut rng);
@@ -188,7 +189,7 @@ impl Simulation {
 }
 
 impl Simulation {
-    pub fn new<T: SeedableRng + Rng + Clone, U: TaxCollector>(seed: u64, count: usize, rates_source: RatesSourceHolder, sublength: usize, job_settings: JobSettings, person_settings: PersonSettings, career_periods: usize, tax_settings: TaxSettings) -> Simulation {
+    pub fn new<T: SeedableRng + Rng + Clone + std::fmt::Debug, U: TaxCollector + std::fmt::Debug>(seed: u64, count: usize, rates_source: RatesSourceHolder, sublength: usize, job_settings: JobSettings, person_settings: PersonSettings, career_periods: usize, tax_settings: TaxSettings) -> Simulation {
         let runs: Vec<Run> = (0..count).map(|seed2| {
             // TODO this seed stuff is kinda awful
             let new_seed = (seed as usize * count) as u64 + (seed2 as u64);
@@ -262,7 +263,12 @@ mod tests {
         let account_settings = AccountSettings::new(50000.0, asset_allocation);
         let account_contribution_settings = AccountContributionSettings::new(account_settings, 0.15, AccountContributionSource::Employee, AccountContributionTaxability::PostTax);
         let job_settings = JobSettings::new(129000.0 / 12.0, Fica::Exempt, RaiseSettings { amount: 1.05, adjust_for_inflation: true }, vec![account_contribution_settings]);
-        let death_rates = get_thread_local_rc(&TEST_DEATH_BUILTIN);
+        let death_rates = get_thread_local_rc(&TEST_DEATH_BUILTIN).clone();
+
+        // When I first created this regression, there was a bug that was skipping the first death rate in the csv as a "header".
+        // To keep the original results, slice of that number
+        let death_rates = Rc::from(&death_rates[1..]);
+
         let person_settings = PersonSettings::new(27, 0, death_rates);
         let brackets = vec![(0.0, 0.1), (10275.0, 0.12), (41775.0, 0.22), (89075.0, 0.24), (170050.0, 0.32), (215950.0, 0.35), (539900.0, 0.37)].iter().map(|b| { TaxBracket { floor: b.0, rate: b.1 } }).collect();
         let tax_settings = TaxSettings::new(brackets, true, 12950.0, true );

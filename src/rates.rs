@@ -19,7 +19,7 @@ impl Rate {
 
 include!(concat!(env!("OUT_DIR"), "/rates.rs"));
 
-fn generate_rates_with_distribution(mut rng: impl Rng, rates_in: &[Rate], sublength: usize, length: usize, dist: impl Distribution<usize>) -> Vec<Rate> {
+fn generate_rates_with_distribution<T: Rng + std::fmt::Debug, U: Distribution<u64> + std::fmt::Debug>(mut rng: T, rates_in: &[Rate], sublength: usize, length: usize, dist: U) -> Vec<Rate> {
     assert!(sublength <= rates_in.len());
     assert!(sublength != 0);
     assert!(rates_in.len() != 0);
@@ -27,7 +27,7 @@ fn generate_rates_with_distribution(mut rng: impl Rng, rates_in: &[Rate], sublen
     let mut rates = Vec::new();
 
     loop {
-        let num = dist.sample(&mut rng);
+        let num = dist.sample(&mut rng) as usize;
 
         let slice: &[Rate];
 
@@ -51,19 +51,19 @@ fn generate_rates_with_distribution(mut rng: impl Rng, rates_in: &[Rate], sublen
     }
 }
 
-fn generate_rates(rng: impl Rng, rates_in: &[Rate], sublength: usize, length: usize) -> Vec<Rate> {
-    let dist = rand::distributions::Uniform::new(0, rates_in.len() + sublength - 1);
+fn generate_rates<T: Rng + std::fmt::Debug>(rng: T, rates_in: &[Rate], sublength: usize, length: usize) -> Vec<Rate> {
+    let dist = rand::distributions::Uniform::new(0, (rates_in.len() + sublength - 1) as u64 );
     generate_rates_with_distribution(rng, rates_in, sublength, length, dist)
 }
 
-fn generate_rates_with_builtin(rng: impl Rng, sublength: usize, length: usize) -> Vec<Rate> {
+fn generate_rates_with_builtin<T: Rng + std::fmt::Debug>(rng: T, sublength: usize, length: usize) -> Vec<Rate> {
 
     let rates = &RATES_BUILTIN;
 
     return generate_rates(rng, rates.as_ref(), sublength, length);
 }
 
-fn generate_rates_with_csv(rng: impl Rng, rates_in: &str, sublength: usize, length: usize) -> Vec<Rate> {
+fn generate_rates_with_csv<T: Rng + std::fmt::Debug>(rng: T, rates_in: &str, sublength: usize, length: usize) -> Vec<Rate> {
     let mut rdr = csv::Reader::from_reader(rates_in.as_bytes());
 
     let rates = rdr
@@ -76,13 +76,14 @@ fn generate_rates_with_csv(rng: impl Rng, rates_in: &str, sublength: usize, leng
     generate_rates(rng, &rates, sublength, length)
 }
 
+#[derive(Debug)]
 pub enum RatesSource {
     Builtin,
     Custom(Vec<Rate>)
 }
 
 impl RatesSource {
-    pub fn generate_rates(&self, rng: impl Rng, sublength: usize, length: usize) -> Vec<Rate> {
+    pub fn generate_rates<T: Rng + std::fmt::Debug>(&self, rng: T, sublength: usize, length: usize) -> Vec<Rate> {
         match self {
             RatesSource::Builtin => {
                 generate_rates_with_builtin(rng, sublength, length)
@@ -94,6 +95,7 @@ impl RatesSource {
     }
 }
 
+#[derive(Debug)]
 #[wasm_bindgen]
 pub struct RatesSourceHolder {
     rates_source: RefCell<RatesSource>
@@ -135,17 +137,18 @@ mod tests {
     use super::*;
     use rand::rngs::mock::StepRng;
 
+    #[derive(Debug)]
     struct MyUniform {
-        top_excl: usize
+        top_excl: u64
     }
 
     impl MyUniform {
-        fn new(i: usize) -> MyUniform { MyUniform {top_excl: i} }
+        fn new(i: u64) -> MyUniform { MyUniform {top_excl: i} }
     }
 
-    impl Distribution<usize> for MyUniform {
-        fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> usize {
-            rng.gen::<usize>() % self.top_excl
+    impl Distribution<u64> for MyUniform {
+        fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> u64 {
+            rng.gen::<u64>() % self.top_excl
         }
     }
 

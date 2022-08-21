@@ -53,6 +53,7 @@ impl AssetAllocation {
     }
 }
 
+#[derive(Debug)]
 #[wasm_bindgen]
 pub struct AccountSettings {
     starting_balance: f64,
