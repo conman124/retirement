@@ -274,7 +274,7 @@ mod tests {
         let tax_settings = TaxSettings::new(brackets, true, 12950.0, true );
         let simulation = Simulation::new::<rand_pcg::Pcg64Mcg, Tax>(1337, 100, RatesSourceHolder::new_from_custom(Vec::from(TEST_RATES_BUILTIN)), 12, job_settings, person_settings, (65 - 27) * 12, tax_settings);
 
-        assert_eq!(simulation.success_rate().num, 48);
+        assert_eq!(simulation.success_rate().num, 148);
         assert_eq!(simulation.success_rate().denom, 100);
 
         assert_eq!(simulation.runs[0].lifespan.periods(), 767);
