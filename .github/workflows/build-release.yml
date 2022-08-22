@@ -1,16 +1,21 @@
-name: Build and Test
+name: Release
+
 on:
-  pull_request:
-    branches: [ main ]
-    
+  release:
+    types: [created]
+
 jobs:
-  build:
+  build-release:
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
           node-version: 18
+          registry-url: https://npm.pkg.github.com
       - name: Install rust nightly
         uses: actions-rs/toolchain@v1
         with:
@@ -22,3 +27,7 @@ jobs:
         run: ./build-release.sh
       - name: Run test
         run: cargo test
+      - run: npm publish
+        working-directory: pkg
+        env:
+          NPM_CONIG_GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
