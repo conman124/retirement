@@ -27,7 +27,12 @@ jobs:
         run: ./build-release.sh
       - name: Run test
         run: cargo test
+      - name: Validate release
+        uses: manovotny/github-releases-for-automated-package-publishing-action@v1.0.0
       - run: npm config set "//npm.pkg.github.com/:_authToken" "${CONMAN124_GITHUB_TOKEN}"
+        env:
+          NPM_CONFIG_CONMAN124_GITHUB_TOKEN: ${{secrets.CONMAN124_GITHUB_TOKEN}}
+      - run: npm config list
         env:
           NPM_CONFIG_CONMAN124_GITHUB_TOKEN: ${{secrets.CONMAN124_GITHUB_TOKEN}}
       - run: npm publish
