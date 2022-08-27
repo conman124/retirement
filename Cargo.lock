@@ -373,6 +373,7 @@ dependencies = [
  "assert_float_eq",
  "csv",
  "getrandom",
+ "js-sys",
  "mockall",
  "rand",
  "rand_pcg",
