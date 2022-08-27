@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use rand::prelude::*;
 use wasm_bindgen::prelude::*;
+use js_sys::Float64Array;
 
 use crate::income::{JobSettings, IncomeProvider};
 use crate::person::PersonSettings;
@@ -13,6 +14,7 @@ use crate::util::Ratio;
 use crate::withdrawal::{WithdrawalStrategyOrig,WithdrawalStrategy};
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
+#[wasm_bindgen]
 pub struct Lifespan {
     periods: usize
 }
@@ -30,18 +32,24 @@ pub struct Period {
 }
 
 impl Lifespan {
+    pub fn iter(&self) -> impl Iterator<Item = Period> {
+        LifespanIterator{current: 0, periods: self.periods}
+    }
+}
+
+#[wasm_bindgen]
+impl Lifespan {
+    #[wasm_bindgen]
     pub fn new(periods: usize) -> Lifespan {
         Lifespan{ periods }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = Period> {
-        LifespanIterator{current: 0, periods: self.periods}
-    }
-
+    #[wasm_bindgen]
     pub fn periods(&self) -> usize {
         self.periods
     }
 
+    #[wasm_bindgen]
     pub fn contains(&self, period: Period) -> bool {
         period.get() < self.periods
     }
@@ -185,6 +193,23 @@ impl Simulation {
             num: self.runs.iter().filter(|a| a.assets_adequate_periods >= a.lifespan.periods()).count(),
             denom: self.runs.len()
         }
+    }
+
+    #[wasm_bindgen]
+    pub fn assets_adequate_periods_for_run(&self, run: usize) -> usize {
+       self.runs[run].assets_adequate_periods
+    }
+
+    #[wasm_bindgen]
+    pub fn lifespan_for_run(&self, run: usize) -> Lifespan {
+       self.runs[run].lifespan
+    }
+
+    #[wasm_bindgen]
+    pub fn get_account_balance_for_run(&self, run: usize, acct: usize) -> Float64Array {
+       unsafe {
+           Float64Array::view(&self.runs[run].retirement_accounts[acct].balance())
+       }
     }
 }
 

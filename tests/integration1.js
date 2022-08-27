@@ -55,3 +55,13 @@ let simulation = new Simulation(BigInt(1337), 100, RatesSourceHolder.new_from_cu
 
 assert.equal(simulation.success_rate().num, 48);
 assert.equal(simulation.success_rate().denom, 100);
+
+assert.equal(simulation.lifespan_for_run(0).periods(), 767);
+assert.equal(simulation.assets_adequate_periods_for_run(0), 622);
+assert.deepEqual(simulation.get_account_balance_for_run(0, 0).slice(0, 12), Float64Array.from([51248.7292286, 52380.39457286909, 56871.42575448158, 59525.492082032, 61196.13885752394, 61785.05465636826, 65607.00783072409, 67606.33964011342, 67969.00130185773, 71380.60268634508, 73701.0843924699, 75908.8568924566]));
+assert.deepEqual(simulation.get_account_balance_for_run(0, 0).slice(-12), Float64Array.from([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]));
+
+assert.equal(simulation.lifespan_for_run(1).periods(), 691);
+assert.equal(simulation.assets_adequate_periods_for_run(1), 691);
+assert.deepEqual(simulation.get_account_balance_for_run(1, 0).slice(0, 12), Float64Array.from([54073.2778065, 56965.67060992199, 59760.360763633245, 63107.109164191774, 68958.71226715308, 67842.21923729929, 74852.24766690681, 72512.28377092176, 74959.52661903139, 76316.76162827399, 77291.47993597148, 80256.03843738187]));
+assert.deepEqual(simulation.get_account_balance_for_run(1, 0).slice(-12), Float64Array.from([744821.5730118523, 703018.223741604, 663064.1007979073, 611859.271316495, 562289.5586005333, 518130.04116344935, 466121.4553477689, 417050.95723389054, 367524.3422774736, 321111.5655106036, 271257.2857022287, 219811.49559669665]));
