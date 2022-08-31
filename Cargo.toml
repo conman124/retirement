@@ -15,7 +15,6 @@ csv = "1.1.6"
 serde = { version = "1", features = ["derive"] }
 wasm-bindgen = "0.2.82"
 getrandom = { version = "0.2.7", features = ["js"] }
-wee_alloc = "0.4.5"
 js-sys = "0.3.59"
 
 [dev-dependencies]
