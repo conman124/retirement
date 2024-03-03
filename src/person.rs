@@ -14,26 +14,29 @@ pub enum Gender {
 #[derive(Debug)]
 #[wasm_bindgen]
 pub struct PersonSettings {
+    name: String,
     age_years: usize,
     age_months: usize,
     annual_death_rates: Rc<[f64]>
 }
 
 #[derive(Debug)]
-pub struct Person {
+pub struct Person<'a> {
+    name: &'a str,
     lifespan: Timespan
 }
 
 impl PersonSettings {
-    pub fn new(age_years: usize, age_months: usize, annual_death_rates: Rc<[f64]>) -> PersonSettings {
-        PersonSettings { age_years, age_months, annual_death_rates }
+    pub fn new(name: String, age_years: usize, age_months: usize, annual_death_rates: Rc<[f64]>) -> PersonSettings {
+        PersonSettings { name, age_years, age_months, annual_death_rates }
     }
 
     pub fn create_person<R: Rng>(&self, rng: &mut R) -> Person {
 
         let lifespan = life_expectancy::calculate_periods(rng, &self.annual_death_rates[self.age_years..], self.age_months);
 
-        Person { 
+        Person {
+            name: &self.name,
             lifespan: Timespan::new(lifespan)
         }
     }
@@ -42,7 +45,7 @@ impl PersonSettings {
 #[wasm_bindgen]
 impl PersonSettings {
     #[wasm_bindgen]
-    pub fn new_with_default_death_rates(age_years: usize, age_months: usize, gender: Gender) -> PersonSettings {
+    pub fn new_with_default_death_rates(name: String, age_years: usize, age_months: usize, gender: Gender) -> PersonSettings {
         let rates = match gender {
             Gender::Male => &life_expectancy::ANNUAL_DEATH_MALE_BUILTIN,
             Gender::Female => &life_expectancy::ANNUAL_DEATH_FEMALE_BUILTIN,
@@ -50,16 +53,16 @@ impl PersonSettings {
 
         let rates = get_thread_local_rc(rates);
 
-        PersonSettings::new(age_years, age_months, rates)
+        PersonSettings::new(name, age_years, age_months, rates)
     }
 
     #[wasm_bindgen]
-    pub fn new_with_custom_death_rates(age_years: usize, age_months: usize, annual_death_rates: &[f64]) -> PersonSettings {
-        PersonSettings::new(age_years, age_months, Rc::from(annual_death_rates))
+    pub fn new_with_custom_death_rates(name: String, age_years: usize, age_months: usize, annual_death_rates: &[f64]) -> PersonSettings {
+        PersonSettings::new(name, age_years, age_months, Rc::from(annual_death_rates))
     }
 }
 
-impl Person {
+impl Person<'_> {
     pub fn lifespan(&self) -> Timespan {
         self.lifespan
     }

@@ -49,7 +49,7 @@ let raiseSettings = new RaiseSettings(1.05, true)
 let allAccountContributionSettings = new AccountContributionSettingsVec();
 allAccountContributionSettings.add(accountContributionSettings);
 let jobSettings = new JobSettings(129000 / 12, FicaJS.exempt(), raiseSettings, allAccountContributionSettings);
-let personSettings = PersonSettings.new_with_custom_death_rates(27, 0, deathRates);
+let personSettings = PersonSettings.new_with_custom_death_rates("John", 27, 0, deathRates);
 let taxSettings = new TaxSettings([0, 10275, 41775, 89075, 170050, 215950, 539900], [0.1, 0.12, 0.22, 0.24, 0.32, 0.35, 0.37], true, 12950, true);
 let simulation = new Simulation(BigInt(1337), 100, RatesSourceHolder.new_from_custom_split(stocks, bonds, inflation), 12, jobSettings, personSettings, (65 - 27) * 12, taxSettings);
 

@@ -294,7 +294,7 @@ mod tests {
         // To keep the original results, slice of that number
         let death_rates = Rc::from(&death_rates[1..]);
 
-        let person_settings = PersonSettings::new(27, 0, death_rates);
+        let person_settings = PersonSettings::new("John".to_string(), 27, 0, death_rates);
         let brackets = vec![(0.0, 0.1), (10275.0, 0.12), (41775.0, 0.22), (89075.0, 0.24), (170050.0, 0.32), (215950.0, 0.35), (539900.0, 0.37)].iter().map(|b| { TaxBracket { floor: b.0, rate: b.1 } }).collect();
         let tax_settings = TaxSettings::new(brackets, true, 12950.0, true );
         let simulation = Simulation::new::<rand_pcg::Pcg64Mcg, Tax>(1337, 100, RatesSourceHolder::new_from_custom(Vec::from(TEST_RATES_BUILTIN)), 12, job_settings, person_settings, (65 - 27) * 12, tax_settings);
