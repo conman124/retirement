@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
-use crate::montecarlo::Lifespan;
+use crate::montecarlo::Timespan;
 use crate::montecarlo::Period;
 use crate::rates::Rate;
 use crate::simplifying_assumption;
@@ -67,7 +67,7 @@ impl TaxSettings {
 
 #[cfg_attr(test, automock)]
 pub trait TaxCollector {
-    fn new(settings: TaxSettings, rates: Rc<Vec<Rate>>, lifespan: Lifespan) -> Self;
+    fn new(settings: TaxSettings, rates: Rc<Vec<Rate>>, lifespan: Timespan) -> Self;
     fn collect_income_taxes(&mut self, money: Money, period: Period) -> TaxResult;
 }
 
@@ -120,7 +120,7 @@ impl Tax {
         taxes
     }
 
-    pub fn new(settings: TaxSettings, rates: Rc<Vec<Rate>>, lifespan: Lifespan) -> Tax {
+    pub fn new(settings: TaxSettings, rates: Rc<Vec<Rate>>, lifespan: Timespan) -> Tax {
         assert_eq!(rates.len(), lifespan.periods());
 
         Tax{ settings, rates, gross_income: vec![0.0; lifespan.periods()] }
@@ -150,7 +150,7 @@ impl Tax {
 }
 
 impl TaxCollector for Tax {
-    fn new(settings: TaxSettings, rates: Rc<Vec<Rate>>, lifespan: Lifespan) -> Tax {
+    fn new(settings: TaxSettings, rates: Rc<Vec<Rate>>, lifespan: Timespan) -> Tax {
         Self::new(settings, rates, lifespan)
     }
 
@@ -166,7 +166,7 @@ mod tests {
 
     #[test]
     pub fn calculatetaxamount_belowdeduction() {
-        let lifespan = Lifespan::new(12);
+        let lifespan = Timespan::new(12);
         let brackets = vec![TaxBracket { floor: 0.0, rate: 0.1 }, TaxBracket { floor: 1000.0, rate: 0.12 } ];
         let settings = TaxSettings { deduction: 10000.0, adjust_deduction_for_inflation: false, brackets, adjust_bracket_floors_for_inflation: false };
         let tax = Tax::new(settings, Rc::new(vec![Rate::new(1.0, 1.0, 1.0); 12]), lifespan);
@@ -176,7 +176,7 @@ mod tests {
 
     #[test]
     pub fn calculatetaxamount_onebracket() {
-        let lifespan = Lifespan::new(12);
+        let lifespan = Timespan::new(12);
         let brackets = vec![TaxBracket { floor: 0.0, rate: 0.1 } ];
         let settings = TaxSettings { deduction: 10000.0, adjust_deduction_for_inflation: false, brackets, adjust_bracket_floors_for_inflation: false };
         let tax = Tax::new(settings, Rc::new(vec![Rate::new(1.0, 1.0, 1.0); 12]), lifespan);
@@ -186,7 +186,7 @@ mod tests {
 
     #[test]
     pub fn calculatetaxamount_middlebracket() {
-        let lifespan = Lifespan::new(12);
+        let lifespan = Timespan::new(12);
         let brackets = vec![TaxBracket { floor: 0.0, rate: 0.1 }, TaxBracket { floor: 1000.0, rate: 0.12 }, TaxBracket { floor: 3000.0, rate: 0.14 } ];
         let settings = TaxSettings { deduction: 10000.0, adjust_deduction_for_inflation: false, brackets, adjust_bracket_floors_for_inflation: false };
         let tax = Tax::new(settings, Rc::new(vec![Rate::new(1.0, 1.0, 1.0); 12]), lifespan);
@@ -196,7 +196,7 @@ mod tests {
 
     #[test]
     pub fn calculatetaxamount_topbracket() {
-        let lifespan = Lifespan::new(12);
+        let lifespan = Timespan::new(12);
         let brackets = vec![TaxBracket { floor: 0.0, rate: 0.1 }, TaxBracket { floor: 1000.0, rate: 0.12 }, TaxBracket { floor: 3000.0, rate: 0.14 } ];
         let settings = TaxSettings { deduction: 10000.0, adjust_deduction_for_inflation: false, brackets, adjust_bracket_floors_for_inflation: false };
         let tax = Tax::new(settings, Rc::new(vec![Rate::new(1.0, 1.0, 1.0); 12]), lifespan);
@@ -206,7 +206,7 @@ mod tests {
 
     #[test]
     pub fn calculatetaxamount_inflatededuction() {
-        let lifespan = Lifespan::new(24);
+        let lifespan = Timespan::new(24);
         let brackets = vec![TaxBracket { floor: 0.0, rate: 0.1 }, TaxBracket { floor: 1000.0, rate: 0.12 }, TaxBracket { floor: 3000.0, rate: 0.14 } ];
         let settings = TaxSettings { deduction: 10000.0, adjust_deduction_for_inflation: true, brackets, adjust_bracket_floors_for_inflation: false };
         let tax = Tax::new(settings, Rc::new(vec![Rate::new(1.0, 1.0, 1.002); 24]), lifespan);
@@ -220,7 +220,7 @@ mod tests {
 
     #[test]
     pub fn calculatetaxamount_inflatebrackets() {
-        let lifespan = Lifespan::new(24);
+        let lifespan = Timespan::new(24);
         let brackets = vec![TaxBracket { floor: 0.0, rate: 0.1 }, TaxBracket { floor: 1000.0, rate: 0.12 }, TaxBracket { floor: 3000.0, rate: 0.14 } ];
         let settings = TaxSettings { deduction: 10000.0, adjust_deduction_for_inflation: false, brackets, adjust_bracket_floors_for_inflation: true };
         let tax = Tax::new(settings, Rc::new(vec![Rate::new(1.0, 1.0, 1.002); 24]), lifespan);
@@ -234,7 +234,7 @@ mod tests {
 
     #[test]
     pub fn calculatetaxamount_inflateboth() {
-        let lifespan = Lifespan::new(24);
+        let lifespan = Timespan::new(24);
         let brackets = vec![TaxBracket { floor: 0.0, rate: 0.1 }, TaxBracket { floor: 1000.0, rate: 0.12 }, TaxBracket { floor: 3000.0, rate: 0.14 } ];
         let settings = TaxSettings { deduction: 10000.0, adjust_deduction_for_inflation: true, brackets, adjust_bracket_floors_for_inflation: true };
         let tax = Tax::new(settings, Rc::new(vec![Rate::new(1.0, 1.0, 1.002); 24]), lifespan);
@@ -248,7 +248,7 @@ mod tests {
 
     #[test]
     pub fn collectincometaxes_nontaxable() {
-        let lifespan = Lifespan::new(12);
+        let lifespan = Timespan::new(12);
         let brackets = vec![TaxBracket { floor: 0.0, rate: 0.1 }, TaxBracket { floor: 1000.0, rate: 0.12 }, TaxBracket { floor: 3000.0, rate: 0.14 } ];
         let settings = TaxSettings { deduction: 10000.0, adjust_deduction_for_inflation: false, brackets, adjust_bracket_floors_for_inflation: false };
         let mut tax = Tax::new(settings, Rc::new(vec![Rate::new(1.0, 1.0, 1.0); 12]), lifespan);
@@ -261,7 +261,7 @@ mod tests {
 
     #[test]
     pub fn collectincometaxes_taxablemultiple() {
-        let lifespan = Lifespan::new(12);
+        let lifespan = Timespan::new(12);
         let brackets = vec![TaxBracket { floor: 0.0, rate: 0.1 }, TaxBracket { floor: 1000.0, rate: 0.12 }, TaxBracket { floor: 3000.0, rate: 0.14 } ];
         let settings = TaxSettings { deduction: 10000.0, adjust_deduction_for_inflation: false, brackets, adjust_bracket_floors_for_inflation: false };
         let mut tax = Tax::new(settings, Rc::new(vec![Rate::new(1.0, 1.0, 1.0); 12]), lifespan);
@@ -278,7 +278,7 @@ mod tests {
 
     #[test]
     pub fn collectincometaxes_mixedtaxable() {
-        let lifespan = Lifespan::new(12);
+        let lifespan = Timespan::new(12);
         let brackets = vec![TaxBracket { floor: 0.0, rate: 0.1 }, TaxBracket { floor: 1000.0, rate: 0.12 }, TaxBracket { floor: 3000.0, rate: 0.14 } ];
         let settings = TaxSettings { deduction: 10000.0, adjust_deduction_for_inflation: false, brackets, adjust_bracket_floors_for_inflation: false };
         let mut tax = Tax::new(settings, Rc::new(vec![Rate::new(1.0, 1.0, 1.0); 12]), lifespan);
@@ -295,7 +295,7 @@ mod tests {
 
     #[test]
     pub fn collectincometaxes_multiyear() {
-        let lifespan = Lifespan::new(24);
+        let lifespan = Timespan::new(24);
         let brackets = vec![TaxBracket { floor: 0.0, rate: 0.1 }, TaxBracket { floor: 1000.0, rate: 0.12 }, TaxBracket { floor: 3000.0, rate: 0.14 } ];
         let settings = TaxSettings { deduction: 10000.0, adjust_deduction_for_inflation: false, brackets, adjust_bracket_floors_for_inflation: false };
         let mut tax = Tax::new(settings, Rc::new(vec![Rate::new(1.0, 1.0, 1.0); 24]), lifespan);

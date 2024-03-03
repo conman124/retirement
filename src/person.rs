@@ -1,6 +1,6 @@
 use rand::prelude::*;
 use wasm_bindgen::prelude::*;
-use crate::montecarlo::Lifespan;
+use crate::montecarlo::Timespan;
 use crate::util::get_thread_local_rc;
 use std::rc::Rc;
 
@@ -21,7 +21,7 @@ pub struct PersonSettings {
 
 #[derive(Debug)]
 pub struct Person {
-    lifespan: Lifespan
+    lifespan: Timespan
 }
 
 impl PersonSettings {
@@ -34,7 +34,7 @@ impl PersonSettings {
         let lifespan = life_expectancy::calculate_periods(rng, &self.annual_death_rates[self.age_years..], self.age_months);
 
         Person { 
-            lifespan: Lifespan::new(lifespan)
+            lifespan: Timespan::new(lifespan)
         }
     }
 }
@@ -60,7 +60,7 @@ impl PersonSettings {
 }
 
 impl Person {
-    pub fn lifespan(&self) -> Lifespan {
+    pub fn lifespan(&self) -> Timespan {
         self.lifespan
     }
 }

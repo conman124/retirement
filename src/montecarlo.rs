@@ -15,12 +15,12 @@ use crate::withdrawal::{WithdrawalStrategyOrig,WithdrawalStrategy};
 
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
 #[wasm_bindgen]
-pub struct Lifespan {
+pub struct Timespan {
     periods: usize
 }
 
 #[derive(Debug)]
-pub struct LifespanIterator {
+pub struct TimespanIterator {
     current: usize,
     periods: usize
 }
@@ -31,17 +31,17 @@ pub struct Period {
     period: usize
 }
 
-impl Lifespan {
+impl Timespan {
     pub fn iter(&self) -> impl Iterator<Item = Period> {
-        LifespanIterator{current: 0, periods: self.periods}
+        TimespanIterator{current: 0, periods: self.periods}
     }
 }
 
 #[wasm_bindgen]
-impl Lifespan {
+impl Timespan {
     #[wasm_bindgen]
-    pub fn new(periods: usize) -> Lifespan {
-        Lifespan{ periods }
+    pub fn new(periods: usize) -> Timespan {
+        Timespan{ periods }
     }
 
     #[wasm_bindgen]
@@ -55,7 +55,7 @@ impl Lifespan {
     }
 }
 
-impl Iterator for LifespanIterator {
+impl Iterator for TimespanIterator {
     type Item = Period;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -108,8 +108,8 @@ impl std::ops::Add<usize> for Period {
 pub struct Run {
     rates: Rc<Vec<Rate>>,
     assets_adequate_periods: usize,
-    lifespan: Lifespan,
-    careerspan: Lifespan,
+    lifespan: Timespan,
+    careerspan: Timespan,
     retirement_accounts: Vec<Account>
 }
 
@@ -119,7 +119,7 @@ impl Run {
 
         let person = person_settings.create_person(&mut rng);
         let lifespan = person.lifespan();
-        let careerspan = Lifespan::new(career_periods);
+        let careerspan = Timespan::new(career_periods);
         let rates = Rc::new(rates_source.generate_rates(T::seed_from_u64(rng.gen()), sublength, lifespan.periods()));
         let jobs = job_settings.create_job(lifespan, careerspan, Rc::clone(&rates));
         let tax = U::new(tax_settings, Rc::clone(&rates), lifespan);
@@ -201,7 +201,7 @@ impl Simulation {
     }
 
     #[wasm_bindgen]
-    pub fn lifespan_for_run(&self, run: usize) -> Lifespan {
+    pub fn lifespan_for_run(&self, run: usize) -> Timespan {
        self.runs[run].lifespan
     }
 
@@ -256,8 +256,8 @@ mod tests {
         let asset_allocation = Rc::new(AssetAllocation::new_linear_glide(1, 0.75, 2, 0.25));
 
         let account = AccountContributionSettings::new(AccountSettings::new(2048.0, asset_allocation), 0.25, AccountContributionSource::Employee, AccountContributionTaxability::PreTax);
-        let mut run = Run { rates: Rc::clone(&rates), assets_adequate_periods: 0, lifespan: Lifespan::new(6), careerspan: Lifespan::new(3), retirement_accounts: vec![] };
-        let job = JobSettings::new(2048.0, Fica::Exempt, RaiseSettings {amount: 1.0, adjust_for_inflation: false}, vec![account] ).create_job(Lifespan::new(6), Lifespan::new(3), rates);
+        let mut run = Run { rates: Rc::clone(&rates), assets_adequate_periods: 0, lifespan: Timespan::new(6), careerspan: Timespan::new(3), retirement_accounts: vec![] };
+        let job = JobSettings::new(2048.0, Fica::Exempt, RaiseSettings {amount: 1.0, adjust_for_inflation: false}, vec![account] ).create_job(Timespan::new(6), Timespan::new(3), rates);
         let null_tax = get_null_tax();
         
         run.populate(job, null_tax);
@@ -272,8 +272,8 @@ mod tests {
         let asset_allocation = Rc::new(AssetAllocation::new_linear_glide(1, 0.75, 2, 0.25));
 
         let account = AccountContributionSettings::new(AccountSettings::new(1024.0, asset_allocation), 0.125, AccountContributionSource::Employee, AccountContributionTaxability::PreTax);
-        let mut run = Run { rates: Rc::clone(&rates), assets_adequate_periods: 0, lifespan: Lifespan::new(6), careerspan: Lifespan::new(3), retirement_accounts: vec![] };
-        let job = JobSettings::new(2048.0, Fica::Exempt, RaiseSettings {amount: 1.0, adjust_for_inflation: false}, vec![account] ).create_job(Lifespan::new(6), Lifespan::new(3), rates);
+        let mut run = Run { rates: Rc::clone(&rates), assets_adequate_periods: 0, lifespan: Timespan::new(6), careerspan: Timespan::new(3), retirement_accounts: vec![] };
+        let job = JobSettings::new(2048.0, Fica::Exempt, RaiseSettings {amount: 1.0, adjust_for_inflation: false}, vec![account] ).create_job(Timespan::new(6), Timespan::new(3), rates);
         let null_tax = get_null_tax();
         
         run.populate(job, null_tax);
@@ -333,7 +333,7 @@ mod tests {
 
     #[test]
     pub fn lifespan_iter() {
-        let lifespan = Lifespan::new(10);
+        let lifespan = Timespan::new(10);
         let mut iter = lifespan.iter();
         for i in 0..10 {
             assert_eq!(iter.next().unwrap().get(), i);
@@ -343,8 +343,8 @@ mod tests {
 
     #[test]
     pub fn lifespan_max() {
-        let lifespan1 = Lifespan::new(10);
-        let lifespan2 = Lifespan::new(20);
+        let lifespan1 = Timespan::new(10);
+        let lifespan2 = Timespan::new(20);
 
         assert_eq!(std::cmp::max(lifespan1, lifespan2).periods, lifespan2.periods);
     }

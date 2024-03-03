@@ -39,14 +39,14 @@ mod tests {
 
     use super::*;
     use crate::assets::{AssetAllocation,AccountSettings};
-    use crate::montecarlo::Lifespan;
+    use crate::montecarlo::Timespan;
     use crate::rates::Rate;
 
     #[test]
     pub fn withdrawalstrategyorig_executesuccess() {
         let dummy_allocation = Rc::new(AssetAllocation::new(vec![1.0]));
-        let mut account1 = AccountSettings::new(1536.0, Rc::clone(&dummy_allocation)).create_account(Lifespan::new(1), Rc::new(vec![Rate::new(1.0, 1.0, 1.0)]));
-        let mut account2 = AccountSettings::new(512.0, dummy_allocation).create_account(Lifespan::new(1), Rc::new(vec![Rate::new(1.0, 1.0, 1.0)]));
+        let mut account1 = AccountSettings::new(1536.0, Rc::clone(&dummy_allocation)).create_account(Timespan::new(1), Rc::new(vec![Rate::new(1.0, 1.0, 1.0)]));
+        let mut account2 = AccountSettings::new(512.0, dummy_allocation).create_account(Timespan::new(1), Rc::new(vec![Rate::new(1.0, 1.0, 1.0)]));
         account1.rebalance_and_invest_next_period(Period::new(0));
         account2.rebalance_and_invest_next_period(Period::new(0));
 
@@ -59,8 +59,8 @@ mod tests {
     #[test]
     pub fn withdrawalstrategyorig_executefailure() {
         let dummy_allocation = Rc::new(AssetAllocation::new(vec![1.0]));
-        let mut account1 = AccountSettings::new(1536.0, Rc::clone(&dummy_allocation)).create_account(Lifespan::new(1), Rc::new(vec![Rate::new(1.0, 1.0, 1.0)]));
-        let mut account2 = AccountSettings::new(512.0, dummy_allocation).create_account(Lifespan::new(1), Rc::new(vec![Rate::new(1.0, 1.0, 1.0)]));
+        let mut account1 = AccountSettings::new(1536.0, Rc::clone(&dummy_allocation)).create_account(Timespan::new(1), Rc::new(vec![Rate::new(1.0, 1.0, 1.0)]));
+        let mut account2 = AccountSettings::new(512.0, dummy_allocation).create_account(Timespan::new(1), Rc::new(vec![Rate::new(1.0, 1.0, 1.0)]));
         account1.rebalance_and_invest_next_period(Period::new(0));
         account2.rebalance_and_invest_next_period(Period::new(0));
 

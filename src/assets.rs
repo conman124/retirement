@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use wasm_bindgen::prelude::*;
 
-use crate::{rates::Rate, montecarlo::{Period, Lifespan}};
+use crate::{rates::Rate, montecarlo::{Period, Timespan}};
 
 #[derive(Debug)]
 #[wasm_bindgen]
@@ -81,7 +81,7 @@ impl AccountSettings {
         AccountSettings { starting_balance, allocation }
     }
 
-    pub fn create_account(&self, lifespan: Lifespan, rates: Rc<Vec<Rate>>) -> Account {
+    pub fn create_account(&self, lifespan: Timespan, rates: Rc<Vec<Rate>>) -> Account {
         assert_eq!(rates.len(), lifespan.periods());
         let balance = vec![0.0; lifespan.periods()];
 
