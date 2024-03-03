@@ -17,7 +17,7 @@ jobs:
             toolchain: nightly
             components: rust-src
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        run: cargo install wasm-pack --version 0.12.1
       - name: Build wasm release
         run: ./build-release.sh
       - name: Run test

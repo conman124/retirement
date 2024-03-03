@@ -1,6 +1,6 @@
 #!/bin/bash
 
-rustup run nightly wasm-pack build --release --scope conman124 . -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort --target wasm32-unknown-unknown
+rustup run nightly wasm-pack build --release --scope conman124 . -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort
 
 # add {"type": "module"} to the generated package.json
 # this makes it so that node can import it
